@@ -74,6 +74,36 @@ export async function obtenerUsuarioPorId(id) {
   return result.rows[0];
 }
 
+export async function obtenerUsuarioPorIdConPassword(id) {
+  const result = await pool.query(
+    `SELECT id,
+            usuario,
+            COALESCE(nombreusuario, nombre) AS nombre,
+            email,
+            password_hash,
+            nivel,
+            codigo,
+            codigosector,
+            habilitado,
+            created_at
+     FROM usuarios
+     WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0];
+}
+
+export async function actualizarPasswordUsuario(id, passwordHash) {
+  const result = await pool.query(
+    `UPDATE usuarios
+     SET password_hash = $1
+     WHERE id = $2
+     RETURNING id`,
+    [passwordHash, id]
+  );
+  return result.rowCount > 0;
+}
+
 export async function obtenerUsuarioPorEmail(email) {
   const result = await pool.query(
     `SELECT id,

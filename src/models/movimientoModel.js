@@ -87,3 +87,31 @@ export async function guardarMovimiento(data) {
   );
   return result.rows[0];
 }
+
+export async function obtenerMovimientosPorExpediente(codigo, numero, anio) {
+  const result = await pool.query(
+    `SELECT id,
+            codigo,
+            numero,
+            anio,
+            fechamov,
+            origen,
+            destino,
+            motivo,
+            estado,
+            movimiento,
+            usuario,
+            codigounm,
+            codigosector,
+            usuariodestino,
+            observaciones,
+            codigoren,
+            coddestino,
+            habilitado
+     FROM movimiento
+     WHERE codigo = $1 AND numero = $2 AND anio = $3
+     ORDER BY fechamov DESC NULLS LAST, id DESC`,
+    [codigo, numero, anio]
+  );
+  return result.rows;
+}

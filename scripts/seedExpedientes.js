@@ -16,7 +16,7 @@ function leerDbf(rutaDbf) {
     }
     const name = buffer
       .slice(offset, offset + 11)
-      .toString("ascii")
+      .toString("latin1")
       .replace(/\u0000/g, "")
       .trim();
     const type = String.fromCharCode(buffer[offset + 11]);
@@ -61,6 +61,15 @@ function toNumber(raw) {
   if (!text) return null;
   const num = Number(text.replace(",", "."));
   return Number.isNaN(num) ? null : num;
+}
+
+function getField(row, names) {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) {
+      return row[name];
+    }
+  }
+  return undefined;
 }
 
 function toInt(raw) {
@@ -122,11 +131,12 @@ async function seed() {
       : null;
 
     const fechaInicio = toDate(row.FECHAINICI);
+    const anioRaw = getField(row, ["AO", "AÑO", "ANIO", "ANO"]);
     expedientesMap.set(codinum, {
       codinum,
       codigo: toString(row.CODIGO) || null,
       numero,
-      anio: normalizarAnio(row.AO, fechaInicio),
+      anio: normalizarAnio(anioRaw, fechaInicio),
       fechainicio: fechaInicio,
       asunto: toString(row.ASUNTO) || null,
       iniciador: toString(row.INICIADOPO) || null,

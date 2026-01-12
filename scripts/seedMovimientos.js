@@ -16,7 +16,7 @@ function leerDbf(rutaDbf) {
     }
     const name = buffer
       .slice(offset, offset + 11)
-      .toString("ascii")
+      .toString("latin1")
       .replace(/\u0000/g, "")
       .trim();
     const type = String.fromCharCode(buffer[offset + 11]);
@@ -63,6 +63,15 @@ function toNumber(raw) {
   return Number.isNaN(num) ? null : num;
 }
 
+function getField(row, names) {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) {
+      return row[name];
+    }
+  }
+  return undefined;
+}
+
 function toInt(raw) {
   const num = toNumber(raw);
   return num === null ? null : Math.trunc(num);
@@ -77,17 +86,10 @@ function toDate(raw) {
   return `${year}-${month}-${day}`;
 }
 
-function normalizarAnio(rawAnio, fechaMov) {
+function normalizarAnio(rawAnio) {
   const anio = toInt(rawAnio);
-  if (!anio) {
-    return fechaMov ? Number(fechaMov.slice(0, 4)) : null;
-  }
-  if (anio < 100) {
-    return 2000 + anio;
-  }
-  if (anio > 2100 && fechaMov) {
-    return Number(fechaMov.slice(0, 4));
-  }
+  if (!anio) return null;
+  if (anio < 100) return 2000 + anio;
   return anio;
 }
 
@@ -179,10 +181,12 @@ async function seed() {
       ? usuariosByNombre.get(usuarioDestinoNombre) ?? null
       : null;
 
+    const anioRaw = getField(row, ["AO", "AÑO", "ANIO", "ANO"]);
+
     movimientos.push({
       codigo: toString(row.CODIGO) || null,
       numero,
-      anio: normalizarAnio(row.AO, fechaMov),
+      anio: normalizarAnio(anioRaw),
       fechamov: fechaMov,
       origen: toString(row.ORIGEN) || null,
       destino: toString(row.DESTINO) || null,

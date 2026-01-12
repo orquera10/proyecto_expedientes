@@ -5,6 +5,8 @@ import {
   guardarUsuario,
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorUsuario,
+  obtenerUsuarioPorIdConPassword,
+  actualizarPasswordUsuario,
 } from "../models/usuarioModel.js";
 import { revokeToken } from "../utils/tokenStore.js";
 
@@ -76,6 +78,42 @@ export async function logout(req, res) {
     revokeToken(jti, exp);
   }
   res.status(204).send();
+}
+
+export async function cambiarPassword(req, res, next) {
+  const { password_actual, password_nueva } = req.body || {};
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Token invalido" });
+  }
+  if (!password_actual || !password_nueva) {
+    return res.status(400).json({
+      error: "Faltan campos obligatorios: password_actual, password_nueva",
+    });
+  }
+
+  try {
+    const usuario = await obtenerUsuarioPorIdConPassword(userId);
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const coincide = await bcrypt.compare(
+      password_actual,
+      usuario.password_hash
+    );
+    if (!coincide) {
+      return res.status(401).json({ error: "Password actual incorrecto" });
+    }
+
+    const hash = await bcrypt.hash(password_nueva, SALT_ROUNDS);
+    await actualizarPasswordUsuario(userId, hash);
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 }
 
 function generarToken(usuario) {
