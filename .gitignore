@@ -8,6 +8,7 @@ pnpm-debug.log*
 
 # Node modules
 node_modules/
+db_vieja/
 
 # dotenv env files
 .env

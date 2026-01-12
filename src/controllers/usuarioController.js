@@ -18,17 +18,21 @@ export async function listarUsuarios(_req, res, next) {
 export async function crearUsuario(req, res, next) {
   const nuevoUsuario = req.body;
 
-  if (!nuevoUsuario?.nombre || !nuevoUsuario?.email) {
+  if (!nuevoUsuario?.nombre) {
     return res
       .status(400)
-      .json({ error: "Faltan campos obligatorios: nombre y email" });
+      .json({ error: "Falta el campo obligatorio: nombre" });
+  }
+  if (!nuevoUsuario?.usuario && !nuevoUsuario?.email) {
+    return res
+      .status(400)
+      .json({ error: "Falta usuario o email para identificar el login" });
   }
 
   try {
     const usuarioCreado = await guardarUsuario(nuevoUsuario);
     res.status(201).json(usuarioCreado);
   } catch (err) {
-    // Si es duplicado de email, retornar 409
     if (err.code === "23505") {
       return res.status(409).json({ error: "El email ya existe" });
     }
@@ -39,7 +43,7 @@ export async function crearUsuario(req, res, next) {
 export async function obtenerUsuario(req, res, next) {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: "ID inválido" });
+    return res.status(400).json({ error: "ID invalido" });
   }
 
   try {
@@ -58,12 +62,17 @@ export async function actualizarUsuarioController(req, res, next) {
   const data = req.body;
 
   if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: "ID inválido" });
+    return res.status(400).json({ error: "ID invalido" });
   }
-  if (!data?.nombre || !data?.email) {
+  if (!data?.nombre) {
     return res
       .status(400)
-      .json({ error: "Faltan campos obligatorios: nombre y email" });
+      .json({ error: "Falta el campo obligatorio: nombre" });
+  }
+  if (!data?.usuario && !data?.email) {
+    return res
+      .status(400)
+      .json({ error: "Falta usuario o email para identificar el login" });
   }
 
   try {
@@ -83,7 +92,7 @@ export async function actualizarUsuarioController(req, res, next) {
 export async function borrarUsuario(req, res, next) {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: "ID inválido" });
+    return res.status(400).json({ error: "ID invalido" });
   }
 
   try {

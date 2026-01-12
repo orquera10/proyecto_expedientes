@@ -3,6 +3,10 @@ import cors from "cors";
 import expedienteRoutes from "./routes/expedienteRoutes.js";
 import usuarioRoutes from "./routes/usuarioRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import sectorRoutes from "./routes/sectorRoutes.js";
+import reparticionRoutes from "./routes/reparticionRoutes.js";
+import partidaRoutes from "./routes/partidaRoutes.js";
+import movimientoRoutes from "./routes/movimientoRoutes.js";
 import pool from "./config/db.js";
 
 const app = express();
@@ -14,6 +18,10 @@ app.use(express.json());
 app.use("/api/expedientes", expedienteRoutes);
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/sectores", sectorRoutes);
+app.use("/api/reparticiones", reparticionRoutes);
+app.use("/api/partidas", partidaRoutes);
+app.use("/api/movimientos", movimientoRoutes);
 
 // Salud general del servicio
 app.get("/health", (_req, res) => {

@@ -4,13 +4,15 @@ import { randomUUID } from "crypto";
 import {
   guardarUsuario,
   obtenerUsuarioPorEmail,
+  obtenerUsuarioPorUsuario,
 } from "../models/usuarioModel.js";
 import { revokeToken } from "../utils/tokenStore.js";
 
 const SALT_ROUNDS = 10;
 
 export async function registrar(req, res, next) {
-  const { nombre, email, password } = req.body || {};
+  const { nombre, email, password, usuario, nivel, codigo, codigosector } =
+    req.body || {};
 
   if (!nombre || !email || !password) {
     return res
@@ -21,9 +23,13 @@ export async function registrar(req, res, next) {
   try {
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
     const usuarioCreado = await guardarUsuario({
+      usuario,
       nombre,
       email,
       password_hash: hash,
+      nivel,
+      codigo,
+      codigosector,
     });
     const token = generarToken(usuarioCreado);
     res.status(201).json({ token, usuario: usuarioCreado });
@@ -36,35 +42,35 @@ export async function registrar(req, res, next) {
 }
 
 export async function login(req, res, next) {
-  const { email, password } = req.body || {};
+  const { usuario, password } = req.body || {};
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Faltan email y password" });
+  if (!usuario || !password) {
+    return res.status(400).json({ error: "Faltan usuario y password" });
   }
 
   try {
-    const usuario = await obtenerUsuarioPorEmail(email);
-    if (!usuario) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
+    const usuarioDb = await obtenerUsuarioPorUsuario(usuario);
+    if (!usuarioDb) {
+      return res.status(401).json({ error: "Credenciales invalidas" });
     }
 
-    const coincide = await bcrypt.compare(password, usuario.password_hash);
+    const coincide = await bcrypt.compare(password, usuarioDb.password_hash);
     if (!coincide) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
+      return res.status(401).json({ error: "Credenciales invalidas" });
     }
 
     // No exponer hash en respuesta
-    delete usuario.password_hash;
+    delete usuarioDb.password_hash;
 
-    const token = generarToken(usuario);
-    res.json({ token, usuario });
+    const token = generarToken(usuarioDb);
+    res.json({ token, usuario: usuarioDb });
   } catch (err) {
     next(err);
   }
 }
 
 export async function logout(req, res) {
-  // verificarToken ya validó el token y adjuntó req.auth
+  // verificarToken ya valido el token y adjunto req.auth
   const { jti, exp } = req.auth || {};
   if (jti) {
     revokeToken(jti, exp);
