@@ -253,10 +253,10 @@ function Dashboard() {
                     ? "border-moss/60 bg-moss/10 text-moss"
                     : label === "Entrada de Expedientes"
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300"
-                      : label === "Salida de Expedientes"
+                    : label === "Salida de Expedientes"
                         ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300"
                         : "border-ink/15 bg-white text-ink hover:border-moss/40 hover:bg-moss/5"
-                }`}
+                } cursor-pointer`}
               >
                 {label}
               </button>
@@ -275,7 +275,7 @@ function Dashboard() {
               <div className="h-24 w-24 rounded-full border border-ink/10 bg-white/90" />
               <div className="space-y-3">
                 <p className="font-display text-2xl font-semibold text-ink md:text-3xl">
-                  Ministerio de Desarrollo Social
+                  Ministerio de Desarrollo Humano
                 </p>
                 <p className="text-sm text-ink/70 md:text-base">
                   Secretaria de Niñez, Adolescencia y Familia
@@ -766,7 +766,7 @@ function Dashboard() {
                     placeholder="Apellido o nombre"
                   />
                 </label>
-                <label className="space-y-2 text-sm font-medium text-ink/70">
+                <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
                   Asunto
                   <input
                     className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
@@ -864,9 +864,11 @@ function Dashboard() {
                           <td className="px-4 py-3 text-ink/60">
                             {item.beneficiario || "N/D"}
                           </td>
-                          <td className="px-4 py-3 text-ink/60">
+                        <td className="px-4 py-3 text-ink/60">
+                          <span className="line-clamp-2 block">
                             {item.asunto || "N/D"}
-                          </td>
+                          </span>
+                        </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <button
