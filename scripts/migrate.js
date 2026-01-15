@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS expedientes (
   fojas INTEGER,
   fechacarga DATE,
   usuario TEXT,
-  usuario_id BIGINT,
   caja TEXT,
   beneficiario TEXT,
   fechaentrada DATE,
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS expedientes (
   reposicion TEXT,
   nacion TEXT,
   cajainterna TEXT,
-  estado TEXT NOT NULL DEFAULT 'E',
   habilitado BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -67,7 +65,7 @@ CREATE TABLE IF NOT EXISTS movimiento (
   destino TEXT,
   motivo TEXT,
   estado TEXT,
-  movimiento TEXT,
+  movimiento BIGINT,
   usuario TEXT,
   codigounm TEXT,
   codigosector TEXT,
@@ -89,7 +87,6 @@ ALTER TABLE expedientes
   ADD COLUMN IF NOT EXISTS fojas INTEGER,
   ADD COLUMN IF NOT EXISTS fechacarga DATE,
   ADD COLUMN IF NOT EXISTS usuario TEXT,
-  ADD COLUMN IF NOT EXISTS usuario_id BIGINT,
   ADD COLUMN IF NOT EXISTS caja TEXT,
   ADD COLUMN IF NOT EXISTS beneficiario TEXT,
   ADD COLUMN IF NOT EXISTS fechaentrada DATE,
@@ -97,9 +94,11 @@ ALTER TABLE expedientes
   ADD COLUMN IF NOT EXISTS reposicion TEXT,
   ADD COLUMN IF NOT EXISTS nacion TEXT,
   ADD COLUMN IF NOT EXISTS cajainterna TEXT,
-  ADD COLUMN IF NOT EXISTS estado TEXT,
   ADD COLUMN IF NOT EXISTS habilitado BOOLEAN,
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+
+ALTER TABLE expedientes
+  DROP COLUMN IF EXISTS estado;
 
 ALTER TABLE usuarios
   ADD COLUMN IF NOT EXISTS usuario TEXT,
@@ -163,7 +162,7 @@ ALTER TABLE movimiento
   ADD COLUMN IF NOT EXISTS destino TEXT,
   ADD COLUMN IF NOT EXISTS motivo TEXT,
   ADD COLUMN IF NOT EXISTS estado TEXT,
-  ADD COLUMN IF NOT EXISTS movimiento TEXT,
+  ADD COLUMN IF NOT EXISTS movimiento BIGINT,
   ADD COLUMN IF NOT EXISTS usuario TEXT,
   ADD COLUMN IF NOT EXISTS codigounm TEXT,
   ADD COLUMN IF NOT EXISTS codigosector TEXT,
@@ -184,10 +183,44 @@ ALTER TABLE movimiento
   ALTER COLUMN habilitado SET DEFAULT TRUE,
   ALTER COLUMN habilitado SET NOT NULL;
 
+ALTER TABLE movimiento
+  ALTER COLUMN movimiento TYPE BIGINT
+  USING NULLIF(movimiento::text, '')::BIGINT;
+
+DO $$
+BEGIN
+  IF pg_get_serial_sequence('movimiento', 'movimiento') IS NULL THEN
+    CREATE SEQUENCE IF NOT EXISTS movimiento_movimiento_seq;
+    ALTER TABLE movimiento
+      ALTER COLUMN movimiento SET DEFAULT nextval('movimiento_movimiento_seq');
+  END IF;
+END $$;
+
+SELECT setval(
+  COALESCE(pg_get_serial_sequence('movimiento', 'movimiento'), 'movimiento_movimiento_seq'),
+  COALESCE((SELECT MAX(movimiento) FROM movimiento), 0) + 1,
+  false
+);
+
 CREATE INDEX IF NOT EXISTS expedientes_codigo_numero_anio_idx
   ON expedientes (codigo, numero, anio);
 CREATE UNIQUE INDEX IF NOT EXISTS expedientes_codinum_unq
   ON expedientes (codinum);
+
+DO $$
+BEGIN
+  IF pg_get_serial_sequence('expedientes', 'codinum') IS NULL THEN
+    CREATE SEQUENCE IF NOT EXISTS expedientes_codinum_seq;
+    ALTER TABLE expedientes
+      ALTER COLUMN codinum SET DEFAULT nextval('expedientes_codinum_seq');
+  END IF;
+END $$;
+
+SELECT setval(
+  COALESCE(pg_get_serial_sequence('expedientes', 'codinum'), 'expedientes_codinum_seq'),
+  COALESCE((SELECT MAX(codinum) FROM expedientes), 0) + 1,
+  false
+);
 
 CREATE INDEX IF NOT EXISTS usuarios_codigo_idx ON usuarios (codigo);
 CREATE INDEX IF NOT EXISTS usuarios_usuario_idx ON usuarios (usuario);
@@ -244,13 +277,27 @@ BEGIN
       ON DELETE SET NULL;
   END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'movimiento_codigoren_fk'
+  ) THEN
+    ALTER TABLE movimiento
+      DROP CONSTRAINT movimiento_codigoren_fk;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'movimiento_coddestino_fk'
+  ) THEN
+    ALTER TABLE movimiento
+      DROP CONSTRAINT movimiento_coddestino_fk;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'movimiento_codigoren_fk'
   ) THEN
     ALTER TABLE movimiento
       ADD CONSTRAINT movimiento_codigoren_fk
       FOREIGN KEY (codigoren)
-      REFERENCES reparticion (codigoreparticion)
+      REFERENCES sector (codigosector)
       ON DELETE SET NULL;
   END IF;
 
@@ -260,7 +307,7 @@ BEGIN
     ALTER TABLE movimiento
       ADD CONSTRAINT movimiento_coddestino_fk
       FOREIGN KEY (coddestino)
-      REFERENCES reparticion (codigoreparticion)
+      REFERENCES sector (codigosector)
       ON DELETE SET NULL;
   END IF;
 
@@ -271,14 +318,11 @@ BEGIN
       DROP CONSTRAINT expedientes_usuario_fk;
   END IF;
 
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'expedientes_usuario_id_fk'
   ) THEN
     ALTER TABLE expedientes
-      ADD CONSTRAINT expedientes_usuario_id_fk
-      FOREIGN KEY (usuario_id)
-      REFERENCES usuarios (id)
-      ON DELETE SET NULL;
+      DROP CONSTRAINT expedientes_usuario_id_fk;
   END IF;
 
   IF EXISTS (

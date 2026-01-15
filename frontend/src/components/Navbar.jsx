@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import logo from "../assets/logo.svg";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -28,8 +29,12 @@ function Navbar() {
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 shadow-sm backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <Link to="/" className="flex items-center gap-4">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-moss text-sm font-semibold text-white shadow-sm">
-            SE
+          <div className="grid h-11 w-11 place-items-center rounded-2xl shadow-sm">
+            <img
+              src={logo}
+              alt="Logo Expedientes"
+              className="h-11 w-11 rounded-2xl object-cover"
+            />
           </div>
           <div className="leading-tight">
             <p className="font-display text-lg font-semibold text-ink">

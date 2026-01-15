@@ -118,7 +118,15 @@ export async function cambiarPassword(req, res, next) {
 
 function generarToken(usuario) {
   return jwt.sign(
-    { id: usuario.id, email: usuario.email, nombre: usuario.nombre, jti: randomUUID() },
+    {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      usuario: usuario.usuario,
+      nivel: usuario.nivel,
+      codigosector: usuario.codigosector,
+      jti: randomUUID(),
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
   );

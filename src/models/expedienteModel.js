@@ -12,7 +12,6 @@ export async function obtenerExpedientes() {
             fojas,
             fechacarga,
             usuario,
-            usuario_id,
             caja,
             beneficiario,
             fechaentrada,
@@ -20,7 +19,6 @@ export async function obtenerExpedientes() {
             reposicion,
             nacion,
             cajainterna,
-            estado,
             habilitado,
             created_at
      FROM expedientes
@@ -71,7 +69,6 @@ export async function obtenerExpedientesFiltrados({
             asunto,
             beneficiario,
             caja,
-            estado,
             habilitado
      FROM expedientes
      ${where}
@@ -82,7 +79,6 @@ export async function obtenerExpedientesFiltrados({
 }
 
 export async function guardarExpediente(data) {
-  const estado = data.estado || "pendiente";
   const result = await pool.query(
     `INSERT INTO expedientes (
        codigo,
@@ -94,7 +90,6 @@ export async function guardarExpediente(data) {
        fojas,
        fechacarga,
        usuario,
-       usuario_id,
        caja,
        beneficiario,
        fechaentrada,
@@ -102,12 +97,11 @@ export async function guardarExpediente(data) {
        reposicion,
        nacion,
        cajainterna,
-       estado,
        habilitado
      )
      VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8, $9,
-       $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+       $10, $11, $12, $13, $14, $15, $16, $17
      )
      RETURNING codinum,
                codigo,
@@ -119,7 +113,6 @@ export async function guardarExpediente(data) {
                fojas,
                fechacarga,
                usuario,
-               usuario_id,
                caja,
                beneficiario,
                fechaentrada,
@@ -127,7 +120,6 @@ export async function guardarExpediente(data) {
                reposicion,
                nacion,
                cajainterna,
-               estado,
                habilitado,
                created_at`,
     [
@@ -140,7 +132,6 @@ export async function guardarExpediente(data) {
       data.fojas ?? null,
       data.fechacarga ?? null,
       data.usuario ?? null,
-      data.usuario_id ?? null,
       data.caja ?? null,
       data.beneficiario ?? null,
       data.fechaentrada ?? null,
@@ -148,7 +139,6 @@ export async function guardarExpediente(data) {
       data.reposicion ?? null,
       data.nacion ?? null,
       data.cajainterna ?? null,
-      estado,
       data.habilitado ?? true,
     ]
   );
@@ -167,7 +157,6 @@ export async function obtenerExpedientePorClave(codigo, numero, anio) {
             fojas,
             fechacarga,
             usuario,
-            usuario_id,
             caja,
             beneficiario,
             fechaentrada,
@@ -175,7 +164,6 @@ export async function obtenerExpedientePorClave(codigo, numero, anio) {
             reposicion,
             nacion,
             cajainterna,
-            estado,
             habilitado,
             created_at
      FROM expedientes
@@ -207,7 +195,6 @@ export async function actualizarExpedientePorClave(codigo, numero, anio, data) {
                caja,
                cajainterna,
                beneficiario,
-               estado,
                habilitado,
                created_at`,
     [

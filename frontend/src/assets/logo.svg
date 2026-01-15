@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">Expedientes Logo</title>
+  <desc id="desc">Icono de carpeta con expediente y sello.</desc>
+  <rect width="200" height="200" rx="28" fill="#0f1417"/>
+  <path d="M48 64c0-8.8 7.2-16 16-16h30l12 14h30c8.8 0 16 7.2 16 16v56c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V64z" fill="#f4f1ea"/>
+  <path d="M56 76h88v8H56zM56 92h88v8H56zM56 108h60v8H56z" fill="#0f1417"/>
+  <circle cx="140" cy="132" r="22" fill="#79c9a6"/>
+  <path d="M132 132l6 6 14-14" fill="none" stroke="#0f1417" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

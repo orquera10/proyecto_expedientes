@@ -112,11 +112,6 @@ async function seed() {
   const rutaDbf = path.join(process.cwd(), "db_vieja", "expte.dbf");
   const { rows } = leerDbf(rutaDbf);
 
-  const usuarios = await pool.query("SELECT id, nombre FROM usuarios");
-  const usuariosByNombre = new Map(
-    usuarios.rows.map((row) => [String(row.nombre), row.id])
-  );
-
   const expedientesMap = new Map();
   for (const row of rows) {
     const codinum = toInt(row.CODIGONUM);
@@ -125,11 +120,6 @@ async function seed() {
       continue;
     }
     const habilitado = !(row._deleted || false);
-    const usuarioNombre = toString(row.USUARIO) || null;
-    const usuarioId = usuarioNombre
-      ? usuariosByNombre.get(usuarioNombre) ?? null
-      : null;
-
     const fechaInicio = toDate(row.FECHAINICI);
     const anioRaw = getField(row, ["AO", "AÑO", "ANIO", "ANO"]);
     expedientesMap.set(codinum, {
@@ -142,8 +132,7 @@ async function seed() {
       iniciador: toString(row.INICIADOPO) || null,
       fojas: toInt(row.FOJAS),
       fechacarga: toDate(row.FECHACARGA),
-      usuario: usuarioNombre,
-      usuario_id: usuarioId,
+      usuario: toString(row.USUARIO) || null,
       caja: toString(row.CAJA) || null,
       beneficiario: toString(row.BENEFICIAR) || null,
       fechaentrada: toDate(row.FECHAENTRA),
@@ -151,12 +140,9 @@ async function seed() {
       reposicion: toString(row.REPOSICION) || null,
       nacion: toBooleanText(row.NACION),
       cajainterna: toString(row.CAJAINTERN) || null,
-      estado: toString(row.ESTADO) || "E",
       habilitado,
     });
   }
-
-  // usuario_id queda null si no hay match por nombre
 
   const expedientes = Array.from(expedientesMap.values());
   if (expedientes.length === 0) {
@@ -169,8 +155,8 @@ async function seed() {
     const chunk = expedientes.slice(i, i + chunkSize);
     const placeholders = chunk
       .map((_, idx) => {
-        const base = idx * 20;
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, $${base + 18}, $${base + 19}, $${base + 20})`;
+        const base = idx * 18;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, $${base + 18})`;
       })
       .join(", ");
     const values = chunk.flatMap((e) => [
@@ -184,7 +170,6 @@ async function seed() {
       e.fojas,
       e.fechacarga,
       e.usuario,
-      e.usuario_id,
       e.caja,
       e.beneficiario,
       e.fechaentrada,
@@ -192,7 +177,6 @@ async function seed() {
       e.reposicion,
       e.nacion,
       e.cajainterna,
-      e.estado,
       e.habilitado,
     ]);
     const sql = `
@@ -207,7 +191,6 @@ async function seed() {
         fojas,
         fechacarga,
         usuario,
-        usuario_id,
         caja,
         beneficiario,
         fechaentrada,
@@ -215,7 +198,6 @@ async function seed() {
         reposicion,
         nacion,
         cajainterna,
-        estado,
         habilitado
       )
       VALUES ${placeholders}
@@ -230,7 +212,6 @@ async function seed() {
         fojas = EXCLUDED.fojas,
         fechacarga = EXCLUDED.fechacarga,
         usuario = EXCLUDED.usuario,
-        usuario_id = EXCLUDED.usuario_id,
         caja = EXCLUDED.caja,
         beneficiario = EXCLUDED.beneficiario,
         fechaentrada = EXCLUDED.fechaentrada,
@@ -238,7 +219,6 @@ async function seed() {
         reposicion = EXCLUDED.reposicion,
         nacion = EXCLUDED.nacion,
         cajainterna = EXCLUDED.cajainterna,
-        estado = EXCLUDED.estado,
         habilitado = EXCLUDED.habilitado
     `;
     await pool.query(sql, values);

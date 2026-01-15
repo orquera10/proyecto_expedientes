@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo.svg";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -57,7 +58,11 @@ function Login() {
           <div className="grid w-full gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="flex flex-col justify-center gap-8">
               <div className="inline-flex w-fit items-center gap-3 rounded-full border border-moss/20 bg-white/70 px-4 py-2 text-sm font-semibold text-moss shadow-haze">
-                <span className="h-2 w-2 rounded-full bg-moss" />
+                <img
+                  src={logo}
+                  alt="Logo Expedientes"
+                  className="h-8 w-8 rounded-xl border border-ink/10 bg-white object-cover"
+                />
                 Sistema de Expedientes
               </div>
               <div className="space-y-4">
@@ -66,7 +71,7 @@ function Login() {
                 </h1>
                 <p className="max-w-xl text-base text-ink/70 md:text-lg">
                   Inicia sesion para consultar expedientes, movimientos y reportes
-                  internos con datos migrados desde el sistema legacy.
+                  internos con datos migrados del sistema antiguo.
                 </p>
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-ink/70">
@@ -159,9 +164,6 @@ function Login() {
                 </button>
               </form>
 
-              <div className="mt-8 rounded-2xl border border-ink/10 bg-white/70 px-4 py-3 text-xs text-ink/60">
-                API actual: <span className="font-semibold">{API_BASE}</span>
-              </div>
             </section>
           </div>
         </main>

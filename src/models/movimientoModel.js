@@ -110,8 +110,242 @@ export async function obtenerMovimientosPorExpediente(codigo, numero, anio) {
             habilitado
      FROM movimiento
      WHERE codigo = $1 AND numero = $2 AND anio = $3
-     ORDER BY fechamov DESC NULLS LAST, id DESC`,
+     ORDER BY movimiento DESC NULLS LAST, id DESC`,
     [codigo, numero, anio]
   );
   return result.rows;
+}
+
+export async function obtenerUltimasSalidas({
+  codigosector,
+  incluirTodos,
+  limit,
+  offset,
+  filtrosBusqueda = {},
+}) {
+  const filtros = [];
+  const values = [];
+
+  if (!incluirTodos) {
+    values.push(codigosector);
+    filtros.push(`l.coddestino::text = $${values.length}::text`);
+  }
+
+  if (filtrosBusqueda.codigo) {
+    values.push(String(filtrosBusqueda.codigo));
+    filtros.push(`l.codigo::text = $${values.length}::text`);
+  }
+  if (filtrosBusqueda.numero) {
+    values.push(Number(filtrosBusqueda.numero));
+    filtros.push(`l.numero = $${values.length}`);
+  }
+  if (filtrosBusqueda.anio) {
+    values.push(Number(filtrosBusqueda.anio));
+    filtros.push(`l.anio = $${values.length}`);
+  }
+  if (filtrosBusqueda.asunto) {
+    values.push(`%${filtrosBusqueda.asunto}%`);
+    filtros.push(`e.asunto ILIKE $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaInicio) {
+    values.push(filtrosBusqueda.fechaInicio);
+    filtros.push(`l.fechamov >= $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaFin) {
+    values.push(filtrosBusqueda.fechaFin);
+    filtros.push(`l.fechamov <= $${values.length}`);
+  }
+
+  const where = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
+
+  values.push(limit);
+  const limitIndex = values.length;
+  values.push(offset);
+  const offsetIndex = values.length;
+
+  const dataQuery = `
+    WITH latest AS (
+      SELECT DISTINCT ON (codigo, numero, anio)
+             id,
+             codigo,
+             numero,
+             anio,
+             fechamov,
+             origen,
+             destino,
+             motivo,
+             estado,
+             movimiento,
+             usuario,
+             codigosector,
+             codigoren,
+             coddestino
+      FROM movimiento
+      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+    )
+    SELECT l.*,
+           e.asunto,
+           e.beneficiario,
+           e.caja,
+           e.partida,
+           e.fechainicio,
+           e.usuario AS expediente_usuario
+    FROM latest l
+    JOIN expedientes e
+      ON e.codigo::text = l.codigo::text
+     AND e.numero::text = l.numero::text
+     AND e.anio::text = l.anio::text
+    WHERE l.estado = 'S'
+    ${filtros.length ? `AND ${filtros.join(" AND ")}` : ""}
+    ORDER BY l.movimiento DESC NULLS LAST, l.id DESC
+    LIMIT $${limitIndex} OFFSET $${offsetIndex}
+  `;
+
+  const countQuery = `
+    WITH latest AS (
+      SELECT DISTINCT ON (codigo, numero, anio)
+             codigo,
+             numero,
+             anio,
+             coddestino,
+             estado
+      FROM movimiento
+      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+    )
+    SELECT COUNT(*)::int AS total
+    FROM latest l
+    JOIN expedientes e
+      ON e.codigo::text = l.codigo::text
+     AND e.numero::text = l.numero::text
+     AND e.anio::text = l.anio::text
+    WHERE l.estado = 'S'
+    ${filtros.length ? `AND ${filtros.join(" AND ")}` : ""}
+  `;
+
+  const [dataResult, countResult] = await Promise.all([
+    pool.query(dataQuery, values),
+    pool.query(countQuery, values.slice(0, values.length - 2)),
+  ]);
+
+  return {
+    rows: dataResult.rows,
+    total: countResult.rows[0]?.total ?? 0,
+  };
+}
+
+export async function obtenerUltimasEntradas({
+  codigosector,
+  incluirTodos,
+  limit,
+  offset,
+  filtrosBusqueda = {},
+}) {
+  const filtros = [];
+  const values = [];
+
+  if (!incluirTodos) {
+    values.push(codigosector);
+    filtros.push(`l.codigosector::text = $${values.length}::text`);
+  }
+
+  if (filtrosBusqueda.codigo) {
+    values.push(String(filtrosBusqueda.codigo));
+    filtros.push(`l.codigo::text = $${values.length}::text`);
+  }
+  if (filtrosBusqueda.numero) {
+    values.push(Number(filtrosBusqueda.numero));
+    filtros.push(`l.numero = $${values.length}`);
+  }
+  if (filtrosBusqueda.anio) {
+    values.push(Number(filtrosBusqueda.anio));
+    filtros.push(`l.anio = $${values.length}`);
+  }
+  if (filtrosBusqueda.asunto) {
+    values.push(`%${filtrosBusqueda.asunto}%`);
+    filtros.push(`e.asunto ILIKE $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaInicio) {
+    values.push(filtrosBusqueda.fechaInicio);
+    filtros.push(`l.fechamov >= $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaFin) {
+    values.push(filtrosBusqueda.fechaFin);
+    filtros.push(`l.fechamov <= $${values.length}`);
+  }
+
+  const where = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
+
+  values.push(limit);
+  const limitIndex = values.length;
+  values.push(offset);
+  const offsetIndex = values.length;
+
+  const dataQuery = `
+    WITH latest AS (
+      SELECT DISTINCT ON (codigo, numero, anio)
+             id,
+             codigo,
+             numero,
+             anio,
+             fechamov,
+             origen,
+             destino,
+             motivo,
+             estado,
+             movimiento,
+             usuario,
+             codigosector,
+             codigoren,
+             coddestino
+      FROM movimiento
+      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+    )
+    SELECT l.*,
+           e.asunto,
+           e.beneficiario,
+           e.caja,
+           e.partida,
+           e.fechainicio,
+           e.usuario AS expediente_usuario
+    FROM latest l
+    JOIN expedientes e
+      ON e.codigo::text = l.codigo::text
+     AND e.numero::text = l.numero::text
+     AND e.anio::text = l.anio::text
+    WHERE l.estado = 'E'
+    ${filtros.length ? `AND ${filtros.join(" AND ")}` : ""}
+    ORDER BY l.movimiento DESC NULLS LAST, l.id DESC
+    LIMIT $${limitIndex} OFFSET $${offsetIndex}
+  `;
+
+  const countQuery = `
+    WITH latest AS (
+      SELECT DISTINCT ON (codigo, numero, anio)
+             codigo,
+             numero,
+             anio,
+             codigosector,
+             estado
+      FROM movimiento
+      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+    )
+    SELECT COUNT(*)::int AS total
+    FROM latest l
+    JOIN expedientes e
+      ON e.codigo::text = l.codigo::text
+     AND e.numero::text = l.numero::text
+     AND e.anio::text = l.anio::text
+    WHERE l.estado = 'E'
+    ${filtros.length ? `AND ${filtros.join(" AND ")}` : ""}
+  `;
+
+  const [dataResult, countResult] = await Promise.all([
+    pool.query(dataQuery, values),
+    pool.query(countQuery, values.slice(0, values.length - 2)),
+  ]);
+
+  return {
+    rows: dataResult.rows,
+    total: countResult.rows[0]?.total ?? 0,
+  };
 }
