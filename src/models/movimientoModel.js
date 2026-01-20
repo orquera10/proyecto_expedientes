@@ -116,6 +116,39 @@ export async function obtenerMovimientosPorExpediente(codigo, numero, anio) {
   return result.rows;
 }
 
+export async function deshabilitarMovimientoPorId(id) {
+  const result = await pool.query(
+    `UPDATE movimiento
+     SET habilitado = FALSE
+     WHERE id = $1
+     RETURNING id, habilitado`,
+    [id]
+  );
+  return result.rows[0];
+}
+
+export async function habilitarMovimientoPorId(id) {
+  const result = await pool.query(
+    `UPDATE movimiento
+     SET habilitado = TRUE
+     WHERE id = $1
+     RETURNING id, habilitado`,
+    [id]
+  );
+  return result.rows[0];
+}
+
+export async function deshabilitarMovimientosPorExpediente(codigo, numero, anio) {
+  const result = await pool.query(
+    `UPDATE movimiento
+     SET habilitado = FALSE
+     WHERE codigo = $1 AND numero = $2 AND anio = $3
+     RETURNING id`,
+    [codigo, numero, anio]
+  );
+  return result.rowCount;
+}
+
 export async function obtenerUltimasSalidas({
   codigosector,
   incluirTodos,
@@ -165,9 +198,9 @@ export async function obtenerUltimasSalidas({
 
   const dataQuery = `
     WITH latest AS (
-      SELECT DISTINCT ON (codigo, numero, anio)
+      SELECT DISTINCT ON (TRIM(codigo::text), numero, anio)
              id,
-             codigo,
+             TRIM(codigo::text) AS codigo,
              numero,
              anio,
              fechamov,
@@ -181,10 +214,13 @@ export async function obtenerUltimasSalidas({
              codigoren,
              coddestino
       FROM movimiento
-      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+      WHERE habilitado IS NOT FALSE
+      ORDER BY TRIM(codigo::text), numero, anio, movimiento DESC NULLS LAST, id DESC
     )
     SELECT l.*,
+           e.codinum,
            e.asunto,
+           e.tipo,
            e.beneficiario,
            e.caja,
            e.partida,
@@ -192,7 +228,7 @@ export async function obtenerUltimasSalidas({
            e.usuario AS expediente_usuario
     FROM latest l
     JOIN expedientes e
-      ON e.codigo::text = l.codigo::text
+      ON TRIM(e.codigo::text) = l.codigo
      AND e.numero::text = l.numero::text
      AND e.anio::text = l.anio::text
     WHERE l.estado = 'S'
@@ -203,19 +239,20 @@ export async function obtenerUltimasSalidas({
 
   const countQuery = `
     WITH latest AS (
-      SELECT DISTINCT ON (codigo, numero, anio)
-             codigo,
+      SELECT DISTINCT ON (TRIM(codigo::text), numero, anio)
+             TRIM(codigo::text) AS codigo,
              numero,
              anio,
              coddestino,
              estado
       FROM movimiento
-      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+      WHERE habilitado IS NOT FALSE
+      ORDER BY TRIM(codigo::text), numero, anio, movimiento DESC NULLS LAST, id DESC
     )
     SELECT COUNT(*)::int AS total
     FROM latest l
     JOIN expedientes e
-      ON e.codigo::text = l.codigo::text
+      ON TRIM(e.codigo::text) = l.codigo
      AND e.numero::text = l.numero::text
      AND e.anio::text = l.anio::text
     WHERE l.estado = 'S'
@@ -245,7 +282,9 @@ export async function obtenerUltimasEntradas({
 
   if (!incluirTodos) {
     values.push(codigosector);
-    filtros.push(`l.codigosector::text = $${values.length}::text`);
+    filtros.push(
+      `(l.codigosector::text = $${values.length}::text OR l.coddestino::text = $${values.length}::text)`
+    );
   }
 
   if (filtrosBusqueda.codigo) {
@@ -282,9 +321,9 @@ export async function obtenerUltimasEntradas({
 
   const dataQuery = `
     WITH latest AS (
-      SELECT DISTINCT ON (codigo, numero, anio)
+      SELECT DISTINCT ON (TRIM(codigo::text), numero, anio)
              id,
-             codigo,
+             TRIM(codigo::text) AS codigo,
              numero,
              anio,
              fechamov,
@@ -298,10 +337,13 @@ export async function obtenerUltimasEntradas({
              codigoren,
              coddestino
       FROM movimiento
-      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+      WHERE habilitado IS NOT FALSE
+      ORDER BY TRIM(codigo::text), numero, anio, movimiento DESC NULLS LAST, id DESC
     )
     SELECT l.*,
+           e.codinum,
            e.asunto,
+           e.tipo,
            e.beneficiario,
            e.caja,
            e.partida,
@@ -309,7 +351,7 @@ export async function obtenerUltimasEntradas({
            e.usuario AS expediente_usuario
     FROM latest l
     JOIN expedientes e
-      ON e.codigo::text = l.codigo::text
+      ON TRIM(e.codigo::text) = l.codigo
      AND e.numero::text = l.numero::text
      AND e.anio::text = l.anio::text
     WHERE l.estado = 'E'
@@ -320,19 +362,21 @@ export async function obtenerUltimasEntradas({
 
   const countQuery = `
     WITH latest AS (
-      SELECT DISTINCT ON (codigo, numero, anio)
-             codigo,
+      SELECT DISTINCT ON (TRIM(codigo::text), numero, anio)
+             TRIM(codigo::text) AS codigo,
              numero,
              anio,
              codigosector,
+             coddestino,
              estado
       FROM movimiento
-      ORDER BY codigo, numero, anio, movimiento DESC NULLS LAST, id DESC
+      WHERE habilitado IS NOT FALSE
+      ORDER BY TRIM(codigo::text), numero, anio, movimiento DESC NULLS LAST, id DESC
     )
     SELECT COUNT(*)::int AS total
     FROM latest l
     JOIN expedientes e
-      ON e.codigo::text = l.codigo::text
+      ON TRIM(e.codigo::text) = l.codigo
      AND e.numero::text = l.numero::text
      AND e.anio::text = l.anio::text
     WHERE l.estado = 'E'

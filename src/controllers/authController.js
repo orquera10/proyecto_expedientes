@@ -16,13 +16,24 @@ export async function registrar(req, res, next) {
   const { nombre, email, password, usuario, nivel, codigo, codigosector } =
     req.body || {};
 
-  if (!nombre || !email || !password) {
+  if (!nombre || !password) {
     return res
       .status(400)
-      .json({ error: "Faltan campos obligatorios: nombre, email, password" });
+      .json({ error: "Faltan campos obligatorios: nombre, password" });
+  }
+  if (!usuario && !email) {
+    return res
+      .status(400)
+      .json({ error: "Falta usuario o email para identificar el login" });
   }
 
   try {
+    if (usuario) {
+      const existente = await obtenerUsuarioPorUsuario(usuario);
+      if (existente) {
+        return res.status(409).json({ error: "El usuario ya existe" });
+      }
+    }
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
     const usuarioCreado = await guardarUsuario({
       usuario,
@@ -37,7 +48,7 @@ export async function registrar(req, res, next) {
     res.status(201).json({ token, usuario: usuarioCreado });
   } catch (err) {
     if (err.code === "23505") {
-      return res.status(409).json({ error: "El email ya existe" });
+      return res.status(409).json({ error: "El usuario o email ya existe" });
     }
     next(err);
   }
@@ -54,6 +65,9 @@ export async function login(req, res, next) {
     const usuarioDb = await obtenerUsuarioPorUsuario(usuario);
     if (!usuarioDb) {
       return res.status(401).json({ error: "Credenciales invalidas" });
+    }
+    if (usuarioDb.habilitado === false) {
+      return res.status(403).json({ error: "Usuario deshabilitado" });
     }
 
     const coincide = await bcrypt.compare(password, usuarioDb.password_hash);

@@ -20,3 +20,96 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.dark body {
+  background: radial-gradient(circle at top left, #1d2328, #15181b 45%, #0f1113 100%);
+  color: #f4f1ea;
+}
+
+.dark .bg-white {
+  background-color: #1b1f23 !important;
+}
+
+.dark .bg-white\/80 {
+  background-color: rgba(27, 31, 35, 0.85) !important;
+}
+
+.dark .bg-white\/70 {
+  background-color: rgba(27, 31, 35, 0.7) !important;
+}
+
+.dark .bg-stone {
+  background-color: #111417 !important;
+}
+
+.dark .text-ink {
+  color: #f4f1ea !important;
+}
+
+.dark .text-ink\/50 {
+  color: rgba(244, 241, 234, 0.5) !important;
+}
+
+.dark .text-ink\/60 {
+  color: rgba(244, 241, 234, 0.6) !important;
+}
+
+.dark .text-ink\/70 {
+  color: rgba(244, 241, 234, 0.7) !important;
+}
+
+.dark .text-ink\/80 {
+  color: rgba(244, 241, 234, 0.8) !important;
+}
+
+.dark .border-ink\/10 {
+  border-color: rgba(244, 241, 234, 0.12) !important;
+}
+
+.dark .border-ink\/15 {
+  border-color: rgba(244, 241, 234, 0.18) !important;
+}
+
+.dark .border-ink\/20 {
+  border-color: rgba(244, 241, 234, 0.22) !important;
+}
+
+.dark .border-white\/70 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .bg-ink\/5 {
+  background-color: rgba(244, 241, 234, 0.08) !important;
+}
+
+.dark .bg-moss\/5 {
+  background-color: rgba(46, 95, 79, 0.2) !important;
+}
+
+.dark .shadow-haze {
+  box-shadow: 0 20px 60px -25px rgba(0, 0, 0, 0.7);
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+}
+
+.dark .border-emerald-200 {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.dark .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.18) !important;
+}
+
+.dark .border-red-200 {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+.dark .text-red-700 {
+  color: #fca5a5 !important;
+}

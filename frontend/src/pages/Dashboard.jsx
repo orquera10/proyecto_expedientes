@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import logo from "../assets/logo.svg";
+import sidIcon from "../assets/sid-sloth.svg";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -31,10 +32,89 @@ function Dashboard() {
     caja: "",
     beneficiario: "",
     asunto: "",
+    tipo: "",
+    codigo: "",
   });
   const [listadoResultados, setListadoResultados] = useState([]);
   const [listadoEstado, setListadoEstado] = useState("idle");
   const [listadoError, setListadoError] = useState("");
+  const [reportesFiltros, setReportesFiltros] = useState({
+    fecha_inicio: "",
+    fecha_fin: "",
+    caja: "",
+    beneficiario: "",
+    asunto: "",
+    codigo: "",
+    tipo: "",
+  });
+  const [reportesResultados, setReportesResultados] = useState([]);
+  const [reportesEstado, setReportesEstado] = useState("idle");
+  const [reportesError, setReportesError] = useState("");
+  const [reportesTipoActivo, setReportesTipoActivo] = useState("");
+  const [adminBusqueda, setAdminBusqueda] = useState({
+    codigo: "",
+    numero: "",
+    anio: "",
+  });
+  const [adminMovimientos, setAdminMovimientos] = useState([]);
+  const [adminEstado, setAdminEstado] = useState("idle");
+  const [adminError, setAdminError] = useState("");
+  const [adminMensaje, setAdminMensaje] = useState("");
+  const [adminMovimientosIncluirDeshabilitados, setAdminMovimientosIncluirDeshabilitados] =
+    useState(false);
+  const [adminMovimientosExpedienteHabilitado, setAdminMovimientosExpedienteHabilitado] =
+    useState(null);
+  const [adminExpedienteBusqueda, setAdminExpedienteBusqueda] = useState({
+    codigo: "",
+    numero: "",
+    anio: "",
+  });
+  const [adminExpedienteResultados, setAdminExpedienteResultados] = useState([]);
+  const [adminExpedienteSeleccionado, setAdminExpedienteSeleccionado] =
+    useState(null);
+  const [adminExpedienteEstado, setAdminExpedienteEstado] = useState("idle");
+  const [adminExpedienteError, setAdminExpedienteError] = useState("");
+  const [adminExpedienteMensaje, setAdminExpedienteMensaje] = useState("");
+  const [adminUsuarioForm, setAdminUsuarioForm] = useState({
+    usuario: "",
+    nombre: "",
+    email: "",
+    password: "",
+    nivel: "U",
+    codigosector: "",
+  });
+  const [adminUsuarioEstado, setAdminUsuarioEstado] = useState("idle");
+  const [adminUsuarioError, setAdminUsuarioError] = useState("");
+  const [adminUsuarioMensaje, setAdminUsuarioMensaje] = useState("");
+  const [adminUsuariosQuery, setAdminUsuariosQuery] = useState("");
+  const [adminUsuariosResultados, setAdminUsuariosResultados] = useState([]);
+  const [adminUsuariosEstado, setAdminUsuariosEstado] = useState("idle");
+  const [adminUsuariosError, setAdminUsuariosError] = useState("");
+  const [adminUsuarioSeleccionado, setAdminUsuarioSeleccionado] = useState(null);
+  const [adminUsuarioEdicion, setAdminUsuarioEdicion] = useState({
+    usuario: "",
+    nombre: "",
+    email: "",
+    nivel: "U",
+    codigosector: "",
+    habilitado: true,
+  });
+  const [adminUsuarioPassword, setAdminUsuarioPassword] = useState("");
+  const [sidebarCompact, setSidebarCompact] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebarCompact") === "true";
+  });
+  const isInformatica =
+    usuarioInfo?.nivel === "S" || String(usuarioInfo?.codigosector || "") === "1";
+  const menuItems = [
+    "Registrar Expediente",
+    "Entrada de Expedientes",
+    "Salida de Expedientes",
+    "Listado de Expedientes",
+    "Modificacion de Expedientes",
+    "Consulta de Expedientes",
+    ...(isInformatica ? ["Reportes", "Administracion"] : []),
+  ];
   const [entradaResultados, setEntradaResultados] = useState([]);
   const [entradaEstado, setEntradaEstado] = useState("idle");
   const [entradaError, setEntradaError] = useState("");
@@ -101,6 +181,7 @@ function Dashboard() {
     fojas: "",
     cajainterna: "",
     caja: "",
+    tipo: "",
   });
   const [modificacionEstado, setModificacionEstado] = useState("idle");
   const [modificacionError, setModificacionError] = useState("");
@@ -126,6 +207,7 @@ function Dashboard() {
     codigo: "",
     numero: "",
     anio: "",
+    tipo: "",
     fechainicio: "",
     fechaentrada: "",
     fechacarga: "",
@@ -147,6 +229,18 @@ function Dashboard() {
   const [cargaError, setCargaError] = useState("");
   const [cargaMensaje, setCargaMensaje] = useState("");
   const [consultaActiva, setConsultaActiva] = useState(null);
+  const [chatAbierto, setChatAbierto] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMensajes, setChatMensajes] = useState([
+    {
+      role: "assistant",
+      content: "Hola, soy Sid. Decime que queres buscar en expedientes.",
+    },
+  ]);
+  const [chatEstado, setChatEstado] = useState("idle");
+  const [chatError, setChatError] = useState("");
+  const chatScrollRef = useRef(null);
+  const chatInputRef = useRef(null);
   const movimientoActual = movimientos.find((mov) => mov.habilitado !== false);
   const puedeEntrada =
     !!movimientoActual &&
@@ -160,7 +254,7 @@ function Dashboard() {
     movimientoActual.estado === "E" &&
     (usuarioInfo?.nivel === "S" ||
       String(usuarioInfo?.codigosector || "") === "1" ||
-      String(movimientoActual.codigosector || "") ===
+      String(movimientoActual.coddestino || "") ===
         String(usuarioInfo?.codigosector || ""));
 
   useEffect(() => {
@@ -186,6 +280,59 @@ function Dashboard() {
     const timeout = setTimeout(() => setListadoError(""), 5000);
     return () => clearTimeout(timeout);
   }, [listadoError]);
+
+  useEffect(() => {
+    if (!adminError) return;
+    const timeout = setTimeout(() => setAdminError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [adminError]);
+
+  useEffect(() => {
+    if (!adminMensaje) return;
+    const timeout = setTimeout(() => setAdminMensaje(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [adminMensaje]);
+
+  useEffect(() => {
+    if (!adminExpedienteError) return;
+    const timeout = setTimeout(() => setAdminExpedienteError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [adminExpedienteError]);
+
+  useEffect(() => {
+    if (!adminExpedienteMensaje) return;
+    const timeout = setTimeout(() => setAdminExpedienteMensaje(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [adminExpedienteMensaje]);
+
+  useEffect(() => {
+    if (!adminUsuarioError) return;
+    const timeout = setTimeout(() => setAdminUsuarioError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [adminUsuarioError]);
+
+  useEffect(() => {
+    if (!adminUsuarioMensaje) return;
+    const timeout = setTimeout(() => setAdminUsuarioMensaje(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [adminUsuarioMensaje]);
+
+  useEffect(() => {
+    if (!adminUsuariosError) return;
+    const timeout = setTimeout(() => setAdminUsuariosError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [adminUsuariosError]);
+
+  useEffect(() => {
+    if (!reportesError) return;
+    const timeout = setTimeout(() => setReportesError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [reportesError]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("sidebarCompact", String(sidebarCompact));
+  }, [sidebarCompact]);
 
   useEffect(() => {
     if (!entradaError) return;
@@ -236,7 +383,24 @@ function Dashboard() {
   }, [modificacionMensaje]);
 
   useEffect(() => {
-    if (seccionActiva !== "Registrar Expedientes x 1 vez") return;
+    if (!chatError) return;
+    const timeout = setTimeout(() => setChatError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [chatError]);
+
+  useEffect(() => {
+    if (!chatScrollRef.current) return;
+    chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  }, [chatMensajes, chatEstado]);
+
+  useEffect(() => {
+    if (!chatAbierto) return;
+    if (!chatInputRef.current) return;
+    chatInputRef.current.focus();
+  }, [chatAbierto, chatEstado]);
+
+  useEffect(() => {
+    if (seccionActiva !== "Registrar Expediente") return;
     setCargaData((prev) => ({
       ...prev,
       origen: prev.origen || usuarioInfo?.codigosector || "",
@@ -264,6 +428,12 @@ function Dashboard() {
     if (seccionActiva !== "Salida de Expedientes") return;
     fetchSalidas(salidaPage);
   }, [seccionActiva, salidaPage]);
+
+  useEffect(() => {
+    if (seccionActiva !== "Administracion") return;
+    if (sectores.length > 0) return;
+    cargarSectores();
+  }, [seccionActiva, sectores.length]);
 
   useEffect(() => {
     if (!salidaModalOpen) return;
@@ -624,7 +794,62 @@ function Dashboard() {
     }
   }
 
-  async function fetchExpediente(codigoValue, numeroValue, anioValue) {
+  async function enviarConsultaChat(texto) {
+    setChatEstado("loading");
+    setChatError("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setChatEstado("error");
+      setChatError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/ai/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: texto }),
+      });
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo consultar el asistente");
+      }
+
+      setChatMensajes((prev) => [
+        ...prev,
+        { role: "assistant", content: payload.answer || "Sin respuesta." },
+      ]);
+      setChatEstado("idle");
+    } catch (err) {
+      setChatEstado("error");
+      setChatError(err.message);
+    }
+  }
+  function handleEnviarChat(event) {
+    if (event) event.preventDefault();
+    const texto = chatInput.trim();
+    if (!texto || chatEstado === "loading") return;
+    setChatMensajes((prev) => [...prev, { role: "user", content: texto }]);
+    setChatInput("");
+    enviarConsultaChat(texto);
+    if (chatInputRef.current) {
+      chatInputRef.current.focus();
+    }
+  }
+
+
+
+async function fetchExpediente(codigoValue, numeroValue, anioValue) {
     setEstado("loading");
     setError("");
     setExpediente(null);
@@ -710,7 +935,9 @@ function Dashboard() {
       listadoFiltros.fecha_fin ||
       listadoFiltros.caja ||
       listadoFiltros.beneficiario ||
-      listadoFiltros.asunto;
+      listadoFiltros.asunto ||
+      listadoFiltros.tipo ||
+      listadoFiltros.codigo;
 
     if (!tieneFiltros) {
       setListadoEstado("error");
@@ -728,6 +955,8 @@ function Dashboard() {
       if (listadoFiltros.beneficiario)
         params.set("beneficiario", listadoFiltros.beneficiario);
       if (listadoFiltros.asunto) params.set("asunto", listadoFiltros.asunto);
+      if (listadoFiltros.tipo) params.set("tipo", listadoFiltros.tipo);
+      if (listadoFiltros.codigo) params.set("codigo", listadoFiltros.codigo);
 
       const response = await fetch(
         `${API_BASE}/api/expedientes?${params.toString()}`,
@@ -755,6 +984,635 @@ function Dashboard() {
       setListadoEstado("error");
       setListadoError(err.message);
     }
+  }
+
+  async function handleReportes(event) {
+    event.preventDefault();
+    setReportesEstado("loading");
+    setReportesError("");
+    setReportesResultados([]);
+    setReportesTipoActivo("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setReportesEstado("error");
+      setReportesError("No hay sesion activa.");
+      return;
+    }
+
+    const tieneFiltros =
+      reportesFiltros.fecha_inicio ||
+      reportesFiltros.fecha_fin ||
+      reportesFiltros.caja ||
+      reportesFiltros.beneficiario ||
+      reportesFiltros.asunto ||
+      reportesFiltros.codigo ||
+      reportesFiltros.tipo;
+
+    if (!tieneFiltros) {
+      setReportesEstado("error");
+      setReportesError("Ingresa al menos un filtro para generar reportes.");
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      if (reportesFiltros.fecha_inicio)
+        params.set("fecha_inicio", reportesFiltros.fecha_inicio);
+      if (reportesFiltros.fecha_fin)
+        params.set("fecha_fin", reportesFiltros.fecha_fin);
+      if (reportesFiltros.caja) params.set("caja", reportesFiltros.caja);
+      if (reportesFiltros.beneficiario)
+        params.set("beneficiario", reportesFiltros.beneficiario);
+      if (reportesFiltros.asunto) params.set("asunto", reportesFiltros.asunto);
+      if (reportesFiltros.codigo) params.set("codigo", reportesFiltros.codigo);
+      if (reportesFiltros.tipo) params.set("tipo", reportesFiltros.tipo);
+
+      const response = await fetch(
+        `${API_BASE}/api/expedientes?${params.toString()}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo obtener el reporte");
+      }
+
+      setReportesResultados(payload);
+      setReportesEstado("success");
+    } catch (err) {
+      setReportesEstado("error");
+      setReportesError(err.message);
+    }
+  }
+
+  function escapeCsv(value) {
+    const safeValue = String(value ?? "");
+    if (safeValue.includes('"') || safeValue.includes(",") || safeValue.includes("\n")) {
+      return `"${safeValue.replace(/"/g, '""')}"`;
+    }
+    return safeValue;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function exportarReportesExcel(items = reportesResultados) {
+    if (items.length === 0) return;
+
+    const rows = items.map((item) => ({
+      codigo: item.codigo ?? "",
+      numero: item.numero ?? "",
+      anio: item.anio ?? "",
+      tipo: etiquetaTipo(item.tipo),
+      fechainicio: item.fechainicio
+        ? new Date(item.fechainicio).toISOString().slice(0, 10)
+        : "",
+      caja: item.caja ?? "",
+      beneficiario: item.beneficiario ?? "",
+      asunto: item.asunto ?? "",
+    }));
+
+    const tableRows = rows
+      .map(
+        (row) => `
+        <tr>
+          <td>${escapeHtml(row.codigo)}</td>
+          <td>${escapeHtml(row.numero)}</td>
+          <td>${escapeHtml(row.anio)}</td>
+          <td>${escapeHtml(row.tipo)}</td>
+          <td>${escapeHtml(row.fechainicio)}</td>
+          <td>${escapeHtml(row.caja)}</td>
+          <td>${escapeHtml(row.beneficiario)}</td>
+          <td>${escapeHtml(row.asunto)}</td>
+        </tr>`
+      )
+      .join("");
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Codigo</th>
+            <th>Numero</th>
+            <th>Anio</th>
+            <th>Tipo</th>
+            <th>Fecha inicio</th>
+            <th>Caja</th>
+            <th>Beneficiario</th>
+            <th>Asunto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>`;
+
+    const blob = new Blob([html], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `reporte_expedientes_${todayISO()}.xls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function contarPorClave(items, selector) {
+    const conteo = new Map();
+    items.forEach((item) => {
+      const valor = selector(item);
+      const clave = valor ? String(valor) : "Sin dato";
+      conteo.set(clave, (conteo.get(clave) || 0) + 1);
+    });
+    return Array.from(conteo.entries()).sort((a, b) => b[1] - a[1]);
+  }
+
+  async function buscarMovimientosAdmin(event) {
+    event.preventDefault();
+    setAdminEstado("loading");
+    setAdminError("");
+    setAdminMensaje("");
+    setAdminMovimientos([]);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminEstado("error");
+      setAdminError("No hay sesion activa.");
+      return;
+    }
+
+    const codigo = String(adminBusqueda.codigo || "").trim();
+    const numero = String(adminBusqueda.numero || "").trim();
+    const anio = String(adminBusqueda.anio || "").trim();
+    if (!codigo || !numero || !anio) {
+      setAdminEstado("error");
+      setAdminError("Completa codigo, numero y anio.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/movimientos/expediente/${codigo}/${numero}/${anio}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudieron cargar movimientos");
+      }
+
+      setAdminMovimientos(payload || []);
+      const expedienteResp = await fetch(
+        `${API_BASE}/api/expedientes/${codigo}/${numero}/${anio}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (expedienteResp.status === 404) {
+        setAdminMovimientosExpedienteHabilitado(false);
+      } else if (expedienteResp.ok) {
+        setAdminMovimientosExpedienteHabilitado(true);
+      } else {
+        setAdminMovimientosExpedienteHabilitado(null);
+      }
+      setAdminEstado("success");
+    } catch (err) {
+      setAdminEstado("error");
+      setAdminError(err.message);
+    }
+  }
+
+  async function deshabilitarMovimientoAdmin(id, habilitar = false) {
+    const accionLabel = habilitar ? "habilitar" : "deshabilitar";
+    if (!window.confirm(`Deseas ${accionLabel} este movimiento?`)) {
+      return;
+    }
+    setAdminEstado("loading");
+    setAdminError("");
+    setAdminMensaje("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminEstado("error");
+      setAdminError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/movimientos/${id}/${habilitar ? "habilitar" : "deshabilitar"}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || `No se pudo ${accionLabel}`);
+      }
+
+      setAdminMovimientos((prev) =>
+        prev.map((mov) =>
+          mov.id === id ? { ...mov, habilitado: habilitar } : mov
+        )
+      );
+      setAdminEstado("success");
+      setAdminMensaje(
+        habilitar ? "Movimiento habilitado." : "Movimiento deshabilitado."
+      );
+    } catch (err) {
+      setAdminEstado("error");
+      setAdminError(err.message);
+    }
+  }
+
+  async function buscarExpedienteAdmin(event) {
+    event.preventDefault();
+    setAdminExpedienteEstado("loading");
+    setAdminExpedienteError("");
+    setAdminExpedienteMensaje("");
+    setAdminExpedienteResultados([]);
+    setAdminExpedienteSeleccionado(null);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminExpedienteEstado("error");
+      setAdminExpedienteError("No hay sesion activa.");
+      return;
+    }
+
+    const codigo = String(adminExpedienteBusqueda.codigo || "").trim();
+    const numero = String(adminExpedienteBusqueda.numero || "").trim();
+    const anio = String(adminExpedienteBusqueda.anio || "").trim();
+    if (!codigo || !numero || !anio) {
+      setAdminExpedienteEstado("error");
+      setAdminExpedienteError("Completa codigo, numero y anio.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/expedientes/clave/${codigo}/${numero}/${anio}?incluir_deshabilitados=1`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo cargar el expediente");
+      }
+
+      setAdminExpedienteResultados(payload || []);
+      if (Array.isArray(payload) && payload.length === 1) {
+        setAdminExpedienteSeleccionado(payload[0]);
+      }
+      setAdminExpedienteEstado("success");
+    } catch (err) {
+      setAdminExpedienteEstado("error");
+      setAdminExpedienteError(err.message);
+    }
+  }
+
+  async function deshabilitarExpedienteAdmin() {
+    if (!adminExpedienteSeleccionado) return;
+    if (!window.confirm("Deseas deshabilitar este expediente y sus movimientos?")) {
+      return;
+    }
+    setAdminExpedienteEstado("loading");
+    setAdminExpedienteError("");
+    setAdminExpedienteMensaje("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminExpedienteEstado("error");
+      setAdminExpedienteError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/expedientes/${adminExpedienteSeleccionado.codigo}/${adminExpedienteSeleccionado.numero}/${adminExpedienteSeleccionado.anio}/deshabilitar`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo deshabilitar");
+      }
+
+      setAdminExpedienteResultados((prev) =>
+        prev.map((item) =>
+          item.codinum === adminExpedienteSeleccionado.codinum
+            ? { ...item, habilitado: false }
+            : item
+        )
+      );
+      setAdminExpedienteSeleccionado((prev) =>
+        prev ? { ...prev, habilitado: false } : prev
+      );
+      setAdminExpedienteEstado("success");
+      setAdminExpedienteMensaje("Expediente deshabilitado.");
+    } catch (err) {
+      setAdminExpedienteEstado("error");
+      setAdminExpedienteError(err.message);
+    }
+  }
+
+  async function crearUsuarioAdmin(event) {
+    event.preventDefault();
+    setAdminUsuarioEstado("loading");
+    setAdminUsuarioError("");
+    setAdminUsuarioMensaje("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminUsuarioEstado("error");
+      setAdminUsuarioError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          usuario: adminUsuarioForm.usuario || undefined,
+          nombre: adminUsuarioForm.nombre.toUpperCase(),
+          email: adminUsuarioForm.email || undefined,
+          password: adminUsuarioForm.password,
+          nivel: adminUsuarioForm.nivel,
+          codigosector: adminUsuarioForm.codigosector || null,
+        }),
+      });
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo crear el usuario");
+      }
+
+      setAdminUsuarioEstado("success");
+      setAdminUsuarioMensaje("Usuario creado.");
+      setAdminUsuarioForm({
+        usuario: "",
+        nombre: "",
+        email: "",
+        password: "",
+        nivel: "U",
+        codigosector: "",
+      });
+    } catch (err) {
+      setAdminUsuarioEstado("error");
+      setAdminUsuarioError(err.message);
+    }
+  }
+
+  async function buscarUsuariosAdmin(event) {
+    event.preventDefault();
+    setAdminUsuariosEstado("loading");
+    setAdminUsuariosError("");
+    setAdminUsuariosResultados([]);
+    setAdminUsuarioSeleccionado(null);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/usuarios`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudieron cargar usuarios");
+      }
+
+      const query = adminUsuariosQuery.trim().toLowerCase();
+      const filtrados = query
+        ? payload.filter((item) => {
+            const usuarioVal = String(item.usuario || "").toLowerCase();
+            const nombreVal = String(item.nombre || "").toLowerCase();
+            return usuarioVal.includes(query) || nombreVal.includes(query);
+          })
+        : payload;
+
+      setAdminUsuariosResultados(filtrados);
+      setAdminUsuariosEstado("success");
+    } catch (err) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError(err.message);
+    }
+  }
+
+  function seleccionarUsuarioAdmin(usuario) {
+    setAdminUsuarioSeleccionado(usuario);
+    setAdminUsuarioEdicion({
+      usuario: usuario?.usuario || "",
+      nombre: usuario?.nombre || "",
+      email: usuario?.email || "",
+      nivel: usuario?.nivel || "U",
+      codigosector: usuario?.codigosector || "",
+      habilitado: usuario?.habilitado !== false,
+    });
+    setAdminUsuarioPassword("");
+  }
+
+  async function actualizarUsuarioAdmin(event) {
+    event.preventDefault();
+    if (!adminUsuarioSeleccionado) return;
+    setAdminUsuariosEstado("loading");
+    setAdminUsuariosError("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/usuarios/${adminUsuarioSeleccionado.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            usuario: adminUsuarioEdicion.usuario || undefined,
+            nombre: adminUsuarioEdicion.nombre,
+            email: adminUsuarioEdicion.email || null,
+            nivel: adminUsuarioEdicion.nivel,
+            codigosector: adminUsuarioEdicion.codigosector || null,
+            habilitado: adminUsuarioEdicion.habilitado,
+          }),
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo actualizar el usuario");
+      }
+
+      setAdminUsuarioSeleccionado(payload);
+      setAdminUsuariosEstado("success");
+      setAdminUsuarioMensaje("Datos guardados.");
+      setAdminUsuarioEdicion({
+        usuario: "",
+        nombre: "",
+        email: "",
+        nivel: "U",
+        codigosector: "",
+        habilitado: true,
+      });
+      setAdminUsuarioSeleccionado(null);
+      setAdminUsuariosQuery("");
+      setAdminUsuariosResultados([]);
+    } catch (err) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError(err.message);
+    }
+  }
+
+  async function resetPasswordAdmin(event) {
+    event.preventDefault();
+    if (!adminUsuarioSeleccionado) return;
+    if (!adminUsuarioPassword) return;
+    setAdminUsuariosEstado("loading");
+    setAdminUsuariosError("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError("No hay sesion activa.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/usuarios/${adminUsuarioSeleccionado.id}/password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ password_nueva: adminUsuarioPassword }),
+        }
+      );
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload?.error || "No se pudo blanquear la contrasena");
+      }
+
+      setAdminUsuarioPassword("");
+      setAdminUsuariosEstado("success");
+      setAdminUsuarioMensaje("Contrasena actualizada.");
+    } catch (err) {
+      setAdminUsuariosEstado("error");
+      setAdminUsuariosError(err.message);
+    }
+  }
+
+  function normalizarTipoClave(value) {
+    const text = String(value ?? "").trim();
+    if (!text) return "SIN DATO";
+    return text.toUpperCase();
+  }
+
+  function etiquetaTipo(value) {
+    const text = String(value ?? "").trim();
+    return text || "Sin dato";
   }
 
   async function buscarParaModificar(codigoValue, numeroValue, anioValue) {
@@ -799,6 +1657,7 @@ function Dashboard() {
         fojas: payload.fojas ? String(payload.fojas) : "",
         cajainterna: payload.cajainterna || "",
         caja: payload.caja || "",
+        tipo: payload.tipo || "",
       });
       setModificacionEncontrado(true);
       setModificacionEstado("idle");
@@ -940,6 +1799,18 @@ function Dashboard() {
     }
 
     try {
+      const anioNormalizado = String(cargaData.anio || "").trim();
+      if (!/^\d{4}$/.test(anioNormalizado)) {
+        setCargaEstado("error");
+        setCargaError("El anio debe tener 4 digitos (formato 2014).");
+        return;
+      }
+      if (!String(cargaData.tipo || "").trim()) {
+        setCargaEstado("error");
+        setCargaError("El tipo de expediente es obligatorio.");
+        return;
+      }
+
       const fechaEntradaFinal = cargaData.fechaentrada || todayISO();
       const fechaInicioFinal = cargaData.fechainicio || todayISO();
       const fechaCargaFinal = cargaData.fechacarga || todayISO();
@@ -982,10 +1853,11 @@ function Dashboard() {
           codigo: cargaData.codigo,
           numero: cargaData.numero,
           anio: cargaData.anio,
+          tipo: cargaData.tipo || null,
           fechainicio: fechaInicioFinal,
           fechaentrada: fechaEntradaFinal,
           fechacarga: fechaCargaFinal,
-          asunto: cargaData.asunto || null,
+          asunto: cargaData.asunto ? cargaData.asunto.toUpperCase() : null,
           iniciador: cargaData.iniciador || null,
           beneficiario: cargaData.beneficiario || null,
           fojas: cargaData.fojas ? Number(cargaData.fojas) : null,
@@ -1016,6 +1888,7 @@ function Dashboard() {
         codigo: "",
         numero: "",
         anio: "",
+        tipo: "",
         fechainicio: fechaInicioFinal,
         fechaentrada: fechaEntradaFinal,
         fechacarga: fechaCargaFinal,
@@ -1033,38 +1906,148 @@ function Dashboard() {
         origen: usuarioInfo?.codigosector || "",
         destino: "",
       });
-    } catch (err) {
+  } catch (err) {
       setCargaEstado("error");
       setCargaError(err.message);
     }
   }
 
+  const reportesTipoOpciones = [
+    "Subsidios",
+    "Compras/Contrataciones",
+    "Anticipos",
+    "Recursos Humanos",
+    "Cajas Chicas",
+    "Aprobacion de Proyectos",
+    "Pagos/Servicios/Alquiler",
+    "Viaticos",
+    "Fondos/Partidas/Refuerzos",
+    "Otro",
+  ];
+  const reportesFiltrados = reportesTipoActivo
+    ? reportesResultados.filter(
+        (item) => normalizarTipoClave(item.tipo) === reportesTipoActivo
+      )
+    : reportesResultados;
+  const reportesTotal = reportesResultados.length;
+  const reportesConCaja = reportesResultados.filter((item) => item.caja).length;
+  const reportesConBeneficiario = reportesResultados.filter(
+    (item) => item.beneficiario
+  ).length;
+  const reportesPorCaja = contarPorClave(reportesResultados, (item) => item.caja).slice(0, 5);
+  const reportesPorBeneficiario = contarPorClave(
+    reportesResultados,
+    (item) => item.beneficiario
+  ).slice(0, 5);
+  const reportesPorAnio = contarPorClave(reportesResultados, (item) => item.anio).slice(0, 5);
+  const reportesPorTipo = Array.from(
+    reportesResultados.reduce((acc, item) => {
+      const key = normalizarTipoClave(item.tipo);
+      if (!acc.has(key)) {
+        acc.set(key, { key, label: etiquetaTipo(item.tipo), total: 0 });
+      }
+      acc.get(key).total += 1;
+      return acc;
+    }, new Map())
+  )
+    .map(([, value]) => value)
+    .sort((a, b) => b.total - a.total);
+  const maxTipo = reportesPorTipo.reduce(
+    (max, item) => Math.max(max, item.total),
+    0
+  );
+  const reportesTipoActivoLabel = reportesTipoActivo
+    ? reportesPorTipo.find((item) => item.key === reportesTipoActivo)?.label ||
+      "Sin dato"
+    : "";
+  const reportesTipoColores = [
+    "bg-emerald-500/80",
+    "bg-amber-500/80",
+    "bg-sky-500/80",
+    "bg-rose-500/80",
+    "bg-lime-500/80",
+    "bg-indigo-500/80",
+    "bg-orange-500/80",
+    "bg-teal-500/80",
+    "bg-fuchsia-500/80",
+    "bg-cyan-500/80",
+  ];
+  const sectoresMap = new Map(
+    sectores.map((sector) => [
+      String(sector.codigosector),
+      sector.sector,
+    ])
+  );
+
   return (
     <div className="min-h-screen bg-stone text-ink">
       <Navbar />
-      <main className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 lg:grid-cols-[280px_1fr]">
-        <aside className="rounded-[28px] border border-ink/10 bg-white/80 p-5 shadow-haze">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-[0.3em] text-ink/60">
-            Menu principal
-          </h2>
-          <div className="mt-5 flex flex-col gap-3">
-            {[
-              "Registrar Expedientes x 1 vez",
-              "Entrada de Expedientes",
-              "Salida de Expedientes",
-              "Listado de Expedientes",
-              "Modificacion de Expedientes",
-              "Consulta de Expedientes",
-            ].map((label) => (
+      <main
+        className={`mx-auto grid w-full max-w-6xl items-stretch gap-10 px-6 py-12 ${
+          sidebarCompact ? "lg:grid-cols-[88px_1fr]" : "lg:grid-cols-[280px_1fr]"
+        }`}
+      >
+        <aside
+          className={`rounded-[28px] border border-ink/10 bg-white/80 shadow-haze ${
+            sidebarCompact ? "p-3" : "p-5"
+          }`}
+        >
+          <div
+            className={`flex items-center ${
+              sidebarCompact ? "justify-center" : "justify-between"
+            }`}
+          >
+            {!sidebarCompact && (
+              <h2 className="font-display text-sm font-semibold uppercase tracking-[0.3em] text-ink/60">
+                Menu principal
+              </h2>
+            )}
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => setSidebarCompact((prev) => !prev)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-ink/15 bg-white text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                aria-label={
+                  sidebarCompact ? "Expandir menu" : "Compactar menu"
+                }
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 7h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 17h10" />
+                </svg>
+              </button>
+              <div className="pointer-events-none absolute right-0 top-10 z-10 hidden whitespace-nowrap rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-ink/70 shadow-sm group-hover:block">
+                {sidebarCompact ? "Expandir menu" : "Compactar menu"}
+              </div>
+            </div>
+          </div>
+          <div className={`mt-5 flex flex-col gap-3 ${sidebarCompact ? "items-center" : ""}`}>
+            {menuItems.map((label) => (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
                   setSeccionActiva(label);
-                  if (label === "Registrar Expedientes x 1 vez") {
+                  if (label === "Registrar Expediente") {
                     cargarPartidas();
                     cargarSectores();
                     cargarReparticiones();
+                  }
+                  if (label === "Modificacion de Expedientes") {
+                    cargarReparticiones();
+                  }
+                  if (label === "Administracion") {
+                    cargarSectores();
                   }
                   if (label === "Entrada de Expedientes") {
                     setEntradaPage(1);
@@ -1073,7 +2056,7 @@ function Dashboard() {
                     setSalidaPage(1);
                   }
                 }}
-                className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold shadow-sm transition ${
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition ${
                   seccionActiva === label
                     ? label === "Salida de Expedientes"
                       ? "border-red-400 bg-red-500 text-white"
@@ -1085,45 +2068,189 @@ function Dashboard() {
                       : label === "Salida de Expedientes"
                           ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300"
                           : "border-ink/20 bg-white text-ink hover:border-ink/40 hover:bg-black hover:text-white"
+                } ${
+                  sidebarCompact
+                    ? "h-12 w-12 p-0"
+                    : "w-full text-left"
                 } cursor-pointer`}
+                title={label}
+                aria-label={label}
               >
-                {label}
+                <span
+                  className={`flex items-center ${
+                    sidebarCompact ? "justify-center" : "gap-3"
+                  }`}
+                >
+                  <span className="grid h-5 w-5 place-items-center">
+                    {label === "Registrar Expediente" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
+                    )}
+                    {label === "Entrada de Expedientes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 4v10" />
+                        <path d="M8 10l4 4 4-4" />
+                        <path d="M4 20h16" />
+                      </svg>
+                    )}
+                    {label === "Salida de Expedientes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 20V10" />
+                        <path d="M8 14l4-4 4 4" />
+                        <path d="M4 4h16" />
+                      </svg>
+                    )}
+                    {label === "Listado de Expedientes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 6h13" />
+                        <path d="M8 12h13" />
+                        <path d="M8 18h13" />
+                        <path d="M3 6h.01" />
+                        <path d="M3 12h.01" />
+                        <path d="M3 18h.01" />
+                      </svg>
+                    )}
+                    {label === "Modificacion de Expedientes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    )}
+                    {label === "Consulta de Expedientes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="M21 21l-3.5-3.5" />
+                      </svg>
+                    )}
+                    {label === "Reportes" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 4h16v16H4z" />
+                        <path d="M8 16v-5" />
+                        <path d="M12 16V8" />
+                        <path d="M16 16v-3" />
+                      </svg>
+                    )}
+                    {label === "Administracion" && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1A1.6 1.6 0 0 0 10 3.6V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h.1a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1A1.6 1.6 0 0 0 20.4 11H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
+                      </svg>
+                    )}
+                  </span>
+                  {!sidebarCompact && <span>{label}</span>}
+                </span>
               </button>
             ))}
           </div>
         </aside>
 
-        <section className="space-y-8">
+        <section className="space-y-8 h-full">
           {![
             "Consulta de Expedientes",
             "Listado de Expedientes",
             "Modificacion de Expedientes",
-            "Registrar Expedientes x 1 vez",
+            "Registrar Expediente",
             "Entrada de Expedientes",
             "Salida de Expedientes",
+            "Reportes",
+            "Administracion",
           ].includes(seccionActiva) && (
-            <div className="rounded-[32px] border border-ink/10 bg-white/80 p-8 shadow-haze">
-            <div className="flex flex-col items-center justify-center gap-6 text-center">
-              <img
-                src={logo}
-                alt="Logo Expedientes"
-                className="h-24 w-24 rounded-3xl border border-ink/10 bg-white/90 object-cover shadow-sm"
-              />
-              <div className="space-y-3">
-                <p className="font-display text-2xl font-semibold text-ink md:text-3xl">
-                  Ministerio de Desarrollo Humano
-                </p>
-                <p className="text-sm text-ink/70 md:text-base">
-                  Secretaria de Niñez, Adolescencia y Familia
-                  <br />
-                  Provincia de Jujuy
-                </p>
-              </div>
-              <div className="rounded-3xl border border-moss/20 bg-moss/10 px-6 py-4 text-sm font-semibold text-moss">
-                Seguimiento Interno de Expedientes
+            <div className="flex h-full rounded-[32px] border border-ink/10 bg-white/80 p-8 shadow-haze">
+              <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
+                <img
+                  src={logo}
+                  alt="Logo Expedientes"
+                  className="h-24 w-24 rounded-3xl border border-ink/10 bg-white/90 object-cover shadow-sm"
+                />
+                <div className="space-y-3">
+                  <p className="font-display text-2xl font-semibold text-ink md:text-3xl">
+                    Ministerio de Desarrollo Humano
+                  </p>
+                  <p className="text-sm text-ink/70 md:text-base">
+                    Secretaria de Niñez, Adolescencia y Familia
+                    <br />
+                    Provincia de Jujuy
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-moss/20 bg-moss/10 px-6 py-4 text-sm font-semibold text-moss">
+                  Seguimiento Interno de Expedientes
+                </div>
               </div>
             </div>
-          </div>
           )}
 
           {seccionActiva === "Consulta de Expedientes" && (
@@ -1238,6 +2365,1104 @@ function Dashboard() {
               </div>
             )}
           </div>
+          )}
+
+          {seccionActiva === "Reportes" && (
+            <div className="space-y-6">
+              <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="font-display text-2xl font-semibold text-ink">
+                      Reportes de Expedientes
+                    </h2>
+                    <p className="mt-1 text-sm text-ink/60">
+                      Genera reportes filtrados y exporta los resultados.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-ink/10 bg-stone px-4 py-2 text-xs font-semibold text-ink/60">
+                    Reportes internos
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={handleReportes}
+                  className="mt-6 grid gap-4 md:grid-cols-2"
+                >
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Fecha inicio
+                    <input
+                      type="date"
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.fecha_inicio}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          fecha_inicio: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Fecha fin
+                    <input
+                      type="date"
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.fecha_fin}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          fecha_fin: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Codigo
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.codigo}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          codigo: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej: 769"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Tipo
+                    <select
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.tipo}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          tipo: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Todos</option>
+                      {reportesTipoOpciones.map((tipo) => (
+                        <option key={tipo} value={tipo}>
+                          {tipo}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Caja
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.caja}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          caja: event.target.value,
+                        }))
+                      }
+                      placeholder="Ej: 3"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70">
+                    Beneficiario
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.beneficiario}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          beneficiario: event.target.value,
+                        }))
+                      }
+                      placeholder="Apellido o nombre"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
+                    Asunto
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={reportesFiltros.asunto}
+                      onChange={(event) =>
+                        setReportesFiltros((prev) => ({
+                          ...prev,
+                          asunto: event.target.value,
+                        }))
+                      }
+                      placeholder="Palabra clave"
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={reportesEstado === "loading"}
+                    className="md:col-span-2 inline-flex cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {reportesEstado === "loading"
+                      ? "Generando..."
+                      : "Generar reporte"}
+                  </button>
+                  <button
+                    type="button"
+                    className="md:col-span-1 inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                    onClick={() => {
+                      setReportesFiltros({
+                        fecha_inicio: "",
+                        fecha_fin: "",
+                        caja: "",
+                        beneficiario: "",
+                        asunto: "",
+                        codigo: "",
+                        tipo: "",
+                      });
+                      setReportesResultados([]);
+                      setReportesEstado("idle");
+                      setReportesError("");
+                      setReportesTipoActivo("");
+                    }}
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exportarReportesExcel(reportesFiltrados)}
+                    disabled={reportesFiltrados.length === 0}
+                    className="md:col-span-1 inline-flex cursor-pointer items-center justify-center rounded-2xl border border-moss/30 bg-moss/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-moss transition hover:bg-moss/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Exportar Excel
+                  </button>
+                </form>
+
+                {reportesError && (
+                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {reportesError}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                    Total expedientes
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-ink">
+                    {reportesTotal}
+                  </p>
+                </div>
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                    Con caja
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-ink">
+                    {reportesConCaja}
+                  </p>
+                </div>
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                    Con beneficiario
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-ink">
+                    {reportesConBeneficiario}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                <h3 className="font-display text-xl font-semibold text-ink">
+                  Distribucion
+                </h3>
+                <div className="mt-6 grid gap-6 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                      Por caja
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm text-ink/70">
+                      {reportesPorCaja.length === 0 && (
+                        <li>Sin datos</li>
+                      )}
+                      {reportesPorCaja.map(([caja, total]) => (
+                        <li
+                          key={`caja-${caja}`}
+                          className="flex items-center justify-between"
+                        >
+                          <span>{caja}</span>
+                          <span className="font-semibold text-ink">{total}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                      Por beneficiario
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm text-ink/70">
+                      {reportesPorBeneficiario.length === 0 && (
+                        <li>Sin datos</li>
+                      )}
+                      {reportesPorBeneficiario.map(([beneficiario, total]) => (
+                        <li
+                          key={`benef-${beneficiario}`}
+                          className="flex items-center justify-between"
+                        >
+                          <span className="line-clamp-1">{beneficiario}</span>
+                          <span className="font-semibold text-ink">{total}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/50">
+                      Por anio
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm text-ink/70">
+                      {reportesPorAnio.length === 0 && <li>Sin datos</li>}
+                      {reportesPorAnio.map(([anioItem, total]) => (
+                        <li
+                          key={`anio-${anioItem}`}
+                          className="flex items-center justify-between"
+                        >
+                          <span>{anioItem}</span>
+                          <span className="font-semibold text-ink">{total}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                <h3 className="font-display text-xl font-semibold text-ink">
+                  Grafico de barras por tipo
+                </h3>
+                <div className="mt-6 space-y-3">
+                  {reportesPorTipo.length === 0 && (
+                    <p className="text-sm text-ink/60">Sin datos</p>
+                  )}
+                  {reportesPorTipo.map((item, index) => {
+                    const width = maxTipo
+                      ? Math.round((item.total / maxTipo) * 100)
+                      : 0;
+                    const colorClass =
+                      reportesTipoColores[index % reportesTipoColores.length];
+                    return (
+                      <button
+                        type="button"
+                        key={`tipo-${item.key}`}
+                        onClick={() =>
+                          setReportesTipoActivo((prev) =>
+                            prev === item.key ? "" : item.key
+                          )
+                        }
+                        className="w-full cursor-pointer space-y-1 rounded-2xl border border-transparent p-2 text-left transition hover:border-ink/10 hover:bg-ink/5"
+                      >
+                        <div className="flex items-center justify-between text-xs font-semibold text-ink/70">
+                          <span className="line-clamp-1">{item.label}</span>
+                          <span>{item.total}</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-stone">
+                          <div
+                            className={`h-2 rounded-full ${colorClass}`}
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                <h3 className="font-display text-xl font-semibold text-ink">
+                  Resultados del reporte
+                </h3>
+                {reportesTipoActivo && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full border border-ink/15 bg-white px-3 py-1 font-semibold text-ink/70">
+                      Tipo: {reportesTipoActivoLabel}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReportesTipoActivo("")}
+                      className="rounded-full border border-ink/10 bg-stone px-3 py-1 font-semibold text-ink/60 transition hover:border-moss/40 hover:text-ink"
+                    >
+                      Limpiar filtro
+                    </button>
+                  </div>
+                )}
+                {reportesResultados.length > 0 && (
+                  <div className="mt-3 text-xs font-semibold text-ink/60">
+                    Mostrando {reportesFiltrados.length} de {reportesResultados.length}
+                  </div>
+                )}
+
+                <div className="mt-6 max-h-[420px] w-full max-w-[900px] overflow-x-auto overflow-y-auto rounded-2xl border border-ink/10 bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-white text-xs uppercase tracking-[0.2em] text-ink/50">
+                      <tr>
+                        <th className="px-4 py-3">Expediente</th>
+                        <th className="px-4 py-3">Fecha</th>
+                        <th className="px-4 py-3">Tipo</th>
+                        <th className="px-4 py-3">Caja</th>
+                        <th className="px-4 py-3">Beneficiario</th>
+                        <th className="px-4 py-3">Asunto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportesFiltrados.length === 0 && (
+                        <tr>
+                          <td className="px-4 py-4 text-ink/60" colSpan={6}>
+                            {reportesEstado === "loading"
+                              ? "Cargando..."
+                              : "Sin resultados"}
+                          </td>
+                        </tr>
+                      )}
+                      {reportesFiltrados.map((item) => (
+                        <tr
+                          key={`${item.codigo}-${item.numero}-${item.anio}`}
+                          className="border-t border-ink/10"
+                        >
+                          <td className="px-4 py-3 font-semibold text-ink">
+                            {item.codigo}-{item.numero}-{item.anio}
+                          </td>
+                          <td className="px-4 py-3 text-ink/60">
+                            {item.fechainicio
+                              ? new Date(item.fechainicio).toLocaleDateString()
+                              : "N/D"}
+                          </td>
+                          <td className="px-4 py-3 text-ink/60">
+                            {etiquetaTipo(item.tipo)}
+                          </td>
+                          <td className="px-4 py-3 text-ink/60">
+                            {item.caja || "N/D"}
+                          </td>
+                          <td className="px-4 py-3 text-ink/60">
+                            {item.beneficiario || "N/D"}
+                          </td>
+                          <td className="px-4 py-3 text-ink/60">
+                            <span className="line-clamp-2 block">
+                              {item.asunto || "N/D"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {seccionActiva === "Administracion" && (
+            <div className="space-y-6">
+              <div className="flex h-full flex-col rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="font-display text-2xl font-semibold text-ink">
+                      Administracion
+                    </h2>
+                    <p className="mt-1 text-sm text-ink/60">
+                      Seccion exclusiva para Informatica.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-ink/10 bg-stone px-4 py-2 text-xs font-semibold text-ink/60">
+                    Operaciones sensibles
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                  <h3 className="font-display text-lg font-semibold text-ink">
+                    Eliminar movimiento
+                  </h3>
+                  <p className="mt-2 text-sm text-ink/60">
+                    Elimina un movimiento individual por expediente y fecha.
+                  </p>
+                  <form
+                    onSubmit={buscarMovimientosAdmin}
+                    className="mt-4 grid gap-3 md:grid-cols-3"
+                  >
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Codigo"
+                      value={adminBusqueda.codigo}
+                      onChange={(event) =>
+                        setAdminBusqueda((prev) => ({
+                          ...prev,
+                          codigo: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Numero"
+                      value={adminBusqueda.numero}
+                      onChange={(event) =>
+                        setAdminBusqueda((prev) => ({
+                          ...prev,
+                          numero: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Anio"
+                      value={adminBusqueda.anio}
+                      onChange={(event) =>
+                        setAdminBusqueda((prev) => ({
+                          ...prev,
+                          anio: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <div className="md:col-span-3 flex flex-wrap gap-2">
+                      <button
+                        type="submit"
+                        disabled={adminEstado === "loading"}
+                        className="inline-flex items-center justify-center rounded-2xl bg-ink px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {adminEstado === "loading"
+                          ? "Buscando..."
+                          : "Buscar movimientos"}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                        onClick={() => {
+                          setAdminBusqueda({ codigo: "", numero: "", anio: "" });
+                          setAdminMovimientos([]);
+                          setAdminEstado("idle");
+                          setAdminError("");
+                          setAdminMensaje("");
+                          setAdminMovimientosExpedienteHabilitado(null);
+                        }}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </form>
+
+                  {adminError && (
+                    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {adminError}
+                    </div>
+                  )}
+                  {adminMensaje && (
+                    <div className="mt-4 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
+                      {adminMensaje}
+                    </div>
+                  )}
+
+                  {adminMovimientos.length > 0 && (
+                    adminMovimientosExpedienteHabilitado === false && (
+                      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
+                        Este expediente esta deshabilitado. No se puede habilitar
+                        movimientos.
+                      </div>
+                    )
+                  )}
+
+                  {adminMovimientos.length > 0 && (
+                    <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-ink/10">
+                      <table className="w-full text-left text-xs">
+                        <thead className="sticky top-0 bg-white text-ink/60">
+                          <tr>
+                            <th className="px-3 py-2 font-semibold">Fecha</th>
+                            <th className="px-3 py-2 font-semibold">Estado</th>
+                            <th className="px-3 py-2 font-semibold">Origen</th>
+                            <th className="px-3 py-2 font-semibold">Destino</th>
+                            <th className="px-3 py-2 font-semibold">Motivo</th>
+                            <th className="px-3 py-2 font-semibold">Usuario</th>
+                            <th className="px-3 py-2 font-semibold">Habilitado</th>
+                            <th className="px-3 py-2 font-semibold">Accion</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-ink/10">
+                          {adminMovimientos
+                            .filter((mov) =>
+                              adminMovimientosIncluirDeshabilitados
+                                ? true
+                                : mov.habilitado !== false
+                            )
+                            .map((mov) => (
+                            <tr key={mov.id}>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.fechamov
+                                  ? new Date(mov.fechamov).toLocaleDateString()
+                                  : "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.estado || "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.origen || "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.destino || "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.motivo || "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.usuario || "N/D"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {mov.habilitado === false ? "No" : "Si"}
+                              </td>
+                              <td className="px-3 py-2">
+                                {mov.habilitado === false ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => deshabilitarMovimientoAdmin(mov.id, true)}
+                                    disabled={adminMovimientosExpedienteHabilitado === false}
+                                    className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 transition hover:border-emerald-300"
+                                  >
+                                    Habilitar
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => deshabilitarMovimientoAdmin(mov.id, false)}
+                                    className="inline-flex items-center justify-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-red-700 transition hover:border-red-300"
+                                  >
+                                    Deshabilitar
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {adminMovimientos.length > 0 && (
+                    <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink/70">
+                      <input
+                        type="checkbox"
+                        checked={adminMovimientosIncluirDeshabilitados}
+                        onChange={(event) =>
+                          setAdminMovimientosIncluirDeshabilitados(event.target.checked)
+                        }
+                      />
+                      Mostrar movimientos deshabilitados
+                    </label>
+                  )}
+                </div>
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
+                  <h3 className="font-display text-lg font-semibold text-ink">
+                    Eliminar expediente
+                  </h3>
+                  <p className="mt-2 text-sm text-ink/60">
+                    Elimina el expediente completo junto con sus movimientos.
+                  </p>
+                  <form
+                    onSubmit={buscarExpedienteAdmin}
+                    className="mt-4 grid gap-3 md:grid-cols-3"
+                  >
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Codigo"
+                      value={adminExpedienteBusqueda.codigo}
+                      onChange={(event) =>
+                        setAdminExpedienteBusqueda((prev) => ({
+                          ...prev,
+                          codigo: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Numero"
+                      value={adminExpedienteBusqueda.numero}
+                      onChange={(event) =>
+                        setAdminExpedienteBusqueda((prev) => ({
+                          ...prev,
+                          numero: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <input
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Anio"
+                      value={adminExpedienteBusqueda.anio}
+                      onChange={(event) =>
+                        setAdminExpedienteBusqueda((prev) => ({
+                          ...prev,
+                          anio: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                    <div className="md:col-span-3 flex flex-wrap gap-2">
+                      <button
+                        type="submit"
+                        disabled={adminExpedienteEstado === "loading"}
+                        className="inline-flex items-center justify-center rounded-2xl bg-ink px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {adminExpedienteEstado === "loading"
+                          ? "Buscando..."
+                          : "Buscar expediente"}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                        onClick={() => {
+                          setAdminExpedienteBusqueda({
+                            codigo: "",
+                            numero: "",
+                            anio: "",
+                          });
+                          setAdminExpedienteResultados([]);
+                          setAdminExpedienteSeleccionado(null);
+                          setAdminExpedienteEstado("idle");
+                          setAdminExpedienteError("");
+                          setAdminExpedienteMensaje("");
+                        }}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </form>
+
+                  {adminExpedienteError && (
+                    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {adminExpedienteError}
+                    </div>
+                  )}
+                  {adminExpedienteMensaje && (
+                    <div className="mt-4 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
+                      {adminExpedienteMensaje}
+                    </div>
+                  )}
+
+                  {adminExpedienteResultados.length > 0 && (
+                    <div className="mt-4 max-h-[220px] overflow-auto rounded-2xl border border-ink/10">
+                      <table className="w-full text-left text-xs">
+                        <thead className="sticky top-0 bg-white text-ink/60">
+                          <tr>
+                            <th className="px-3 py-2 font-semibold">Codinum</th>
+                            <th className="px-3 py-2 font-semibold">Estado</th>
+                            <th className="px-3 py-2 font-semibold">Tipo</th>
+                            <th className="px-3 py-2 font-semibold">Asunto</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-ink/10">
+                          {adminExpedienteResultados.map((item) => (
+                            <tr
+                              key={item.codinum}
+                              className={`cursor-pointer hover:bg-moss/5 ${
+                                adminExpedienteSeleccionado?.codinum === item.codinum
+                                  ? "bg-moss/10"
+                                  : ""
+                              }`}
+                              onClick={() => setAdminExpedienteSeleccionado(item)}
+                            >
+                              <td className="px-3 py-2 font-semibold text-ink">
+                                {item.codinum}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {item.habilitado === false ? "Deshabilitado" : "Habilitado"}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {etiquetaTipo(item.tipo)}
+                              </td>
+                              <td className="px-3 py-2 text-ink/70">
+                                {item.asunto || "N/D"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {adminExpedienteSeleccionado && (
+                    <div className="mt-4 rounded-2xl border border-ink/10 bg-white px-4 py-4 text-sm text-ink/70">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="font-semibold text-ink">
+                          {adminExpedienteSeleccionado.codigo}-
+                          {adminExpedienteSeleccionado.numero}-
+                          {adminExpedienteSeleccionado.anio}
+                        </div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-ink/50">
+                          {adminExpedienteSeleccionado.habilitado === false
+                            ? "Deshabilitado"
+                            : "Habilitado"}
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        <p>
+                          <span className="font-semibold text-ink">Tipo:</span>{" "}
+                          {etiquetaTipo(adminExpedienteSeleccionado.tipo)}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-ink">Asunto:</span>{" "}
+                          {adminExpedienteSeleccionado.asunto || "N/D"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-ink">
+                            Beneficiario:
+                          </span>{" "}
+                          {adminExpedienteSeleccionado.beneficiario || "N/D"}
+                        </p>
+                      </div>
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          disabled={adminExpedienteSeleccionado.habilitado === false}
+                          onClick={deshabilitarExpedienteAdmin}
+                          className="inline-flex items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-700 transition hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Deshabilitar expediente
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm md:col-span-2">
+                  <h3 className="font-display text-lg font-semibold text-ink">
+                    Gestion de usuarios
+                  </h3>
+                  <p className="mt-2 text-sm text-ink/60">
+                    Alta y mantenimiento de usuarios del sistema.
+                  </p>
+                  <div className="mt-4 rounded-2xl border border-ink/10 bg-white p-4">
+                    <h4 className="text-sm font-semibold text-ink">
+                      Alta de usuario
+                    </h4>
+                    <form
+                      onSubmit={crearUsuarioAdmin}
+                      className="mt-4 grid gap-3 md:grid-cols-2"
+                    >
+                      <input
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Usuario"
+                        value={adminUsuarioForm.usuario}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            usuario: event.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Nombre completo"
+                        value={adminUsuarioForm.nombre}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            nombre: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                      <input
+                        type="email"
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Email (opcional)"
+                        value={adminUsuarioForm.email}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            email: event.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        type="password"
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Password"
+                        value={adminUsuarioForm.password}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            password: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                      <select
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        value={adminUsuarioForm.nivel}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            nivel: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="U">Usuario</option>
+                        <option value="S">Superusuario</option>
+                      </select>
+                      <select
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        value={adminUsuarioForm.codigosector}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            codigosector: event.target.value,
+                          }))
+                        }
+                        required
+                      >
+                        <option value="">Sector</option>
+                        {sectores.map((sector) => (
+                          <option
+                            key={sector.codigosector}
+                            value={sector.codigosector}
+                          >
+                            {sector.codigosector} - {sector.sector}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="md:col-span-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={adminUsuarioEstado === "loading"}
+                          className="inline-flex items-center justify-center rounded-2xl bg-ink px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {adminUsuarioEstado === "loading"
+                            ? "Creando..."
+                            : "Crear usuario"}
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                          onClick={() => {
+                            setAdminUsuarioForm({
+                              usuario: "",
+                              nombre: "",
+                              email: "",
+                              password: "",
+                              nivel: "U",
+                              codigosector: "",
+                            });
+                            setAdminUsuarioEstado("idle");
+                            setAdminUsuarioError("");
+                            setAdminUsuarioMensaje("");
+                          }}
+                        >
+                          Limpiar
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {adminUsuarioError && (
+                    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {adminUsuarioError}
+                    </div>
+                  )}
+                  {adminUsuarioMensaje && (
+                    <div className="mt-4 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
+                      {adminUsuarioMensaje}
+                    </div>
+                  )}
+
+                  <div className="mt-6 rounded-2xl border border-ink/10 bg-white p-4">
+                    <h4 className="text-sm font-semibold text-ink">
+                      Modificacion de usuario
+                    </h4>
+                    <form
+                      onSubmit={buscarUsuariosAdmin}
+                      className="mt-4 flex flex-wrap gap-3"
+                    >
+                      <input
+                        className="flex-1 min-w-[220px] rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Buscar por usuario o nombre"
+                        value={adminUsuariosQuery}
+                        onChange={(event) => setAdminUsuariosQuery(event.target.value)}
+                      />
+                      <button
+                        type="submit"
+                        disabled={adminUsuariosEstado === "loading"}
+                        className="inline-flex items-center justify-center rounded-2xl bg-ink px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {adminUsuariosEstado === "loading" ? "Buscando..." : "Buscar"}
+                      </button>
+                    </form>
+                    {adminUsuariosError && (
+                      <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {adminUsuariosError}
+                      </div>
+                    )}
+                    {adminUsuariosResultados.length > 0 && (
+                      <div className="mt-4 max-h-[240px] overflow-auto rounded-2xl border border-ink/10">
+                        <table className="w-full text-left text-xs">
+                          <thead className="sticky top-0 bg-white text-ink/60">
+                            <tr>
+                              <th className="px-3 py-2 font-semibold">Usuario</th>
+                              <th className="px-3 py-2 font-semibold">Nombre</th>
+                              <th className="px-3 py-2 font-semibold">Sector</th>
+                              <th className="px-3 py-2 font-semibold">Nivel</th>
+                              <th className="px-3 py-2 font-semibold">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-ink/10">
+                            {adminUsuariosResultados.map((usuarioItem) => (
+                              <tr
+                                key={usuarioItem.id}
+                                className="cursor-pointer hover:bg-moss/5"
+                                onClick={() => seleccionarUsuarioAdmin(usuarioItem)}
+                              >
+                                <td className="px-3 py-2 font-semibold text-ink">
+                                  {usuarioItem.usuario || "N/D"}
+                                </td>
+                                <td className="px-3 py-2 text-ink/70">
+                                  {usuarioItem.nombre || "N/D"}
+                                </td>
+                                <td className="px-3 py-2 text-ink/70">
+                                  {sectoresMap.get(
+                                    String(usuarioItem.codigosector || "")
+                                  ) || "N/D"}
+                                </td>
+                                <td className="px-3 py-2 text-ink/70">
+                                  {usuarioItem.nivel === "S" ? "Super" : "Usuario"}
+                                </td>
+                                <td className="px-3 py-2 text-ink/70">
+                                  {usuarioItem.habilitado === false ? "Baja" : "Activo"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {adminUsuarioSeleccionado && (
+                      <div className="mt-4 space-y-4">
+                        <form
+                          onSubmit={actualizarUsuarioAdmin}
+                          className="grid gap-3 md:grid-cols-2"
+                        >
+                          <input
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            placeholder="Usuario"
+                            value={adminUsuarioEdicion.usuario}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                usuario: event.target.value,
+                              }))
+                            }
+                          />
+                          <input
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            placeholder="Nombre completo"
+                            value={adminUsuarioEdicion.nombre}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                nombre: event.target.value,
+                              }))
+                            }
+                            required
+                          />
+                          <input
+                            type="email"
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            placeholder="Email (opcional)"
+                            value={adminUsuarioEdicion.email}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                email: event.target.value,
+                              }))
+                            }
+                          />
+                          <select
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            value={adminUsuarioEdicion.nivel}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                nivel: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="U">Usuario</option>
+                            <option value="S">Superusuario</option>
+                          </select>
+                          <select
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            value={adminUsuarioEdicion.codigosector}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                codigosector: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">Sector</option>
+                            {sectores.map((sector) => (
+                              <option
+                                key={sector.codigosector}
+                                value={sector.codigosector}
+                              >
+                                {sector.codigosector} - {sector.sector}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="flex items-center gap-2 text-xs font-semibold text-ink/70">
+                            <input
+                              type="checkbox"
+                              checked={adminUsuarioEdicion.habilitado}
+                              onChange={(event) =>
+                                setAdminUsuarioEdicion((prev) => ({
+                                  ...prev,
+                                  habilitado: event.target.checked,
+                                }))
+                              }
+                            />
+                            Usuario habilitado
+                          </label>
+                          <div className="md:col-span-2">
+                            <button
+                              type="submit"
+                              disabled={adminUsuariosEstado === "loading"}
+                              className="inline-flex items-center justify-center rounded-2xl bg-ink px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              Guardar cambios
+                            </button>
+                          </div>
+                        </form>
+
+                        <form
+                          onSubmit={resetPasswordAdmin}
+                          className="grid gap-3 md:grid-cols-2"
+                        >
+                          <input
+                            type="password"
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            placeholder="Nueva contrasena"
+                            value={adminUsuarioPassword}
+                            onChange={(event) =>
+                              setAdminUsuarioPassword(event.target.value)
+                            }
+                            required
+                          />
+                          <div className="flex items-center">
+                            <button
+                              type="submit"
+                              disabled={adminUsuariosEstado === "loading"}
+                              className="inline-flex items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              Blanquear contrasena
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {seccionActiva === "Modificacion de Expedientes" && (
@@ -1382,7 +3607,7 @@ function Dashboard() {
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
                       Iniciado por
-                      <input
+                      <select
                         className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                         value={modificacionData.iniciador}
                         onChange={(event) =>
@@ -1391,7 +3616,18 @@ function Dashboard() {
                             iniciador: event.target.value,
                           }))
                         }
-                      />
+                      >
+                        <option value="">Seleccionar</option>
+                        {reparticiones.map((reparticion) => (
+                          <option
+                            key={reparticion.codigoreparticion}
+                            value={reparticion.reparticion}
+                          >
+                            {reparticion.codigoreparticion} -{" "}
+                            {reparticion.reparticion}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-3">
                       Asunto
@@ -1407,7 +3643,7 @@ function Dashboard() {
                         }
                       />
                     </label>
-                    <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-3">
+                    <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
                       Beneficiario
                       <input
                         className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
@@ -1419,6 +3655,26 @@ function Dashboard() {
                           }))
                         }
                       />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-1">
+                      Tipo
+                      <select
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        value={modificacionData.tipo}
+                        onChange={(event) =>
+                          setModificacionData((prev) => ({
+                            ...prev,
+                            tipo: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Seleccionar</option>
+                        {reportesTipoOpciones.map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {tipo}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/70">
                       Fojas
@@ -1496,6 +3752,7 @@ function Dashboard() {
                                 : null,
                               cajainterna: modificacionData.cajainterna || null,
                               caja: modificacionData.caja || null,
+                              tipo: modificacionData.tipo || null,
                             }),
                           }
                         );
@@ -1528,6 +3785,7 @@ function Dashboard() {
                           fojas: "",
                           cajainterna: "",
                           caja: "",
+                          tipo: "",
                         });
                         setModificacionEncontrado(false);
                       } catch (err) {
@@ -1557,7 +3815,7 @@ function Dashboard() {
               )}
             </div>
           )}
-          {seccionActiva === "Registrar Expedientes x 1 vez" && (
+          {seccionActiva === "Registrar Expediente" && (
             <div className="space-y-6">
               <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1597,6 +3855,7 @@ function Dashboard() {
                     Codigo
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 769"
                       value={cargaData.codigo}
                       onChange={(event) =>
                         setCargaData((prev) => ({
@@ -1611,6 +3870,7 @@ function Dashboard() {
                     Numero
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 83"
                       value={cargaData.numero}
                       onChange={(event) =>
                         setCargaData((prev) => ({
@@ -1624,12 +3884,17 @@ function Dashboard() {
                   <label className="space-y-2 text-sm font-medium text-ink/70">
                     Anio
                     <input
+                      inputMode="numeric"
+                      pattern="[0-9]{4}"
+                      maxLength={4}
+                      title="Ingrese 4 digitos (ej: 2014)."
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 2024"
                       value={cargaData.anio}
                       onChange={(event) =>
                         setCargaData((prev) => ({
                           ...prev,
-                          anio: event.target.value,
+                          anio: event.target.value.replace(/\D/g, "").slice(0, 4),
                         }))
                       }
                       required
@@ -1695,7 +3960,7 @@ function Dashboard() {
                     </label>
                   </div>
 
-                  <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-3">
+                  <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
                     Iniciado por
                     <select
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
@@ -1716,6 +3981,27 @@ function Dashboard() {
                         >
                           {reparticion.codigoreparticion} -{" "}
                           {reparticion.reparticion}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-1">
+                    Tipo
+                    <select
+                      className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      value={cargaData.tipo}
+                      onChange={(event) =>
+                        setCargaData((prev) => ({
+                          ...prev,
+                          tipo: event.target.value,
+                        }))
+                      }
+                      required
+                    >
+                      <option value="">Seleccionar</option>
+                      {reportesTipoOpciones.map((tipo) => (
+                        <option key={tipo} value={tipo}>
+                          {tipo}
                         </option>
                       ))}
                     </select>
@@ -1946,6 +4232,7 @@ function Dashboard() {
                     Codigo
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 769"
                       value={entradaFiltros.codigo}
                       onChange={(event) =>
                         setEntradaFiltros((prev) => ({
@@ -1959,6 +4246,7 @@ function Dashboard() {
                     Numero
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 83"
                       value={entradaFiltros.numero}
                       onChange={(event) =>
                         setEntradaFiltros((prev) => ({
@@ -1972,6 +4260,7 @@ function Dashboard() {
                     Anio
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 2024"
                       value={entradaFiltros.anio}
                       onChange={(event) =>
                         setEntradaFiltros((prev) => ({
@@ -2025,16 +4314,16 @@ function Dashboard() {
                       />
                     </label>
                   </div>
-                  <div className="flex items-center gap-3 md:col-span-3">
+                  <div className="flex w-full flex-col items-stretch gap-3 md:col-span-3 md:flex-row">
                     <button
                       type="submit"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss"
+                      className="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss md:w-1/2"
                     >
                       Buscar
                     </button>
                     <button
                       type="button"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                      className="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink md:w-1/2"
                       onClick={() => {
                         setEntradaFiltros({
                           codigo: "",
@@ -2064,19 +4353,19 @@ function Dashboard() {
                     <table className="w-full text-left text-sm">
                       <thead className="sticky top-0 bg-white text-ink/60">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Codigo</th>
-                          <th className="px-4 py-3 font-semibold">Numero</th>
-                          <th className="px-4 py-3 font-semibold">Anio</th>
+                          <th className="px-4 py-3 font-semibold">Accion</th>
+                          <th className="px-4 py-3 font-semibold">Expediente</th>
+                          <th className="px-4 py-3 font-semibold">Codinum</th>
                           <th className="px-4 py-3 font-semibold">Asunto</th>
+                          <th className="px-4 py-3 font-semibold">Tipo</th>
                           <th className="px-4 py-3 font-semibold">Destino</th>
                           <th className="px-4 py-3 font-semibold">Fecha</th>
-                          <th className="px-4 py-3 font-semibold">Accion</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-ink/10">
                         {entradaEstado === "loading" && (
                           <tr>
-                            <td className="px-4 py-4 text-ink/60" colSpan={7}>
+                            <td className="px-4 py-4 text-ink/60" colSpan={6}>
                               Cargando...
                             </td>
                           </tr>
@@ -2086,7 +4375,7 @@ function Dashboard() {
                             <tr>
                               <td
                                 className="px-4 py-4 text-ink/60"
-                                colSpan={7}
+                                colSpan={6}
                               >
                                 No hay expedientes para mostrar.
                               </td>
@@ -2094,22 +4383,6 @@ function Dashboard() {
                           )}
                         {entradaResultados.map((item) => (
                           <tr key={`${item.codigo}-${item.numero}-${item.anio}`}>
-                            <td className="px-4 py-3 font-semibold text-ink">
-                              {item.codigo || "N/D"}
-                            </td>
-                            <td className="px-4 py-3">{item.numero || "N/D"}</td>
-                            <td className="px-4 py-3">{item.anio || "N/D"}</td>
-                            <td className="px-4 py-3">
-                              {item.asunto || "Sin asunto"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {item.destino || "N/D"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {item.fechamov
-                                ? new Date(item.fechamov).toLocaleDateString()
-                                : "N/D"}
-                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <button
@@ -2171,6 +4444,27 @@ function Dashboard() {
                                   </svg>
                                 </button>
                               </div>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-ink">
+                              {item.codigo || "N/D"}-{item.numero || "N/D"}/
+                              {item.anio || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.codinum || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.asunto || "Sin asunto"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {etiquetaTipo(item.tipo)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.destino || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.fechamov
+                                ? new Date(item.fechamov).toLocaleDateString()
+                                : "N/D"}
                             </td>
                           </tr>
                         ))}
@@ -2247,6 +4541,7 @@ function Dashboard() {
                     Codigo
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 769"
                       value={salidaFiltros.codigo}
                       onChange={(event) =>
                         setSalidaFiltros((prev) => ({
@@ -2260,6 +4555,7 @@ function Dashboard() {
                     Numero
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 83"
                       value={salidaFiltros.numero}
                       onChange={(event) =>
                         setSalidaFiltros((prev) => ({
@@ -2273,6 +4569,7 @@ function Dashboard() {
                     Anio
                     <input
                       className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                      placeholder="Ej: 2024"
                       value={salidaFiltros.anio}
                       onChange={(event) =>
                         setSalidaFiltros((prev) => ({
@@ -2326,16 +4623,16 @@ function Dashboard() {
                       />
                     </label>
                   </div>
-                  <div className="flex items-center gap-3 md:col-span-3">
+                  <div className="flex w-full flex-col items-stretch gap-3 md:col-span-3 md:flex-row">
                     <button
                       type="submit"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss"
+                      className="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss md:w-1/2"
                     >
                       Buscar
                     </button>
                     <button
                       type="button"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                      className="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink md:w-1/2"
                       onClick={() => {
                         setSalidaFiltros({
                           codigo: "",
@@ -2365,19 +4662,19 @@ function Dashboard() {
                     <table className="w-full text-left text-sm">
                       <thead className="sticky top-0 bg-white text-ink/60">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Codigo</th>
-                          <th className="px-4 py-3 font-semibold">Numero</th>
-                          <th className="px-4 py-3 font-semibold">Anio</th>
+                          <th className="px-4 py-3 font-semibold">Accion</th>
+                          <th className="px-4 py-3 font-semibold">Expediente</th>
+                          <th className="px-4 py-3 font-semibold">Codinum</th>
                           <th className="px-4 py-3 font-semibold">Asunto</th>
+                          <th className="px-4 py-3 font-semibold">Tipo</th>
                           <th className="px-4 py-3 font-semibold">Origen</th>
                           <th className="px-4 py-3 font-semibold">Fecha</th>
-                          <th className="px-4 py-3 font-semibold">Accion</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-ink/10">
                         {salidaEstado === "loading" && (
                           <tr>
-                            <td className="px-4 py-4 text-ink/60" colSpan={7}>
+                            <td className="px-4 py-4 text-ink/60" colSpan={6}>
                               Cargando...
                             </td>
                           </tr>
@@ -2387,7 +4684,7 @@ function Dashboard() {
                             <tr>
                               <td
                                 className="px-4 py-4 text-ink/60"
-                                colSpan={7}
+                                colSpan={6}
                               >
                                 No hay expedientes para mostrar.
                               </td>
@@ -2395,22 +4692,6 @@ function Dashboard() {
                           )}
                         {salidaResultados.map((item) => (
                           <tr key={`${item.codigo}-${item.numero}-${item.anio}`}>
-                            <td className="px-4 py-3 font-semibold text-ink">
-                              {item.codigo || "N/D"}
-                            </td>
-                            <td className="px-4 py-3">{item.numero || "N/D"}</td>
-                            <td className="px-4 py-3">{item.anio || "N/D"}</td>
-                            <td className="px-4 py-3">
-                              {item.asunto || "Sin asunto"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {item.origen || "N/D"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {item.fechamov
-                                ? new Date(item.fechamov).toLocaleDateString()
-                                : "N/D"}
-                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <button
@@ -2472,6 +4753,27 @@ function Dashboard() {
                                   </svg>
                                 </button>
                               </div>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-ink">
+                              {item.codigo || "N/D"}-{item.numero || "N/D"}/
+                              {item.anio || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.codinum || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.asunto || "Sin asunto"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {etiquetaTipo(item.tipo)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.origen || "N/D"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {item.fechamov
+                                ? new Date(item.fechamov).toLocaleDateString()
+                                : "N/D"}
                             </td>
                           </tr>
                         ))}
@@ -2597,6 +4899,40 @@ function Dashboard() {
                     placeholder="Apellido o nombre"
                   />
                 </label>
+                <label className="space-y-2 text-sm font-medium text-ink/70">
+                  Tipo
+                  <select
+                    className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                    value={listadoFiltros.tipo}
+                    onChange={(event) =>
+                      setListadoFiltros((prev) => ({
+                        ...prev,
+                        tipo: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Todos</option>
+                    {reportesTipoOpciones.map((tipo) => (
+                      <option key={tipo} value={tipo}>
+                        {tipo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/70">
+                  Codigo
+                  <input
+                    className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                    value={listadoFiltros.codigo}
+                    onChange={(event) =>
+                      setListadoFiltros((prev) => ({
+                        ...prev,
+                        codigo: event.target.value,
+                      }))
+                    }
+                    placeholder="Ej: 769"
+                  />
+                </label>
                 <label className="space-y-2 text-sm font-medium text-ink/70 md:col-span-2">
                   Asunto
                   <input
@@ -2629,6 +4965,8 @@ function Dashboard() {
                       caja: "",
                       beneficiario: "",
                       asunto: "",
+                      tipo: "",
+                      codigo: "",
                     });
                     setListadoResultados([]);
                     setListadoEstado("idle");
@@ -2655,12 +4993,14 @@ function Dashboard() {
                   <table className="w-full text-left text-sm">
                     <thead className="sticky top-0 bg-white text-xs uppercase tracking-[0.2em] text-ink/50">
                       <tr>
+                        <th className="px-4 py-3">Accion</th>
                         <th className="px-4 py-3">Expediente</th>
+                        <th className="px-4 py-3">Codinum</th>
                         <th className="px-4 py-3">Fecha</th>
                         <th className="px-4 py-3">Caja</th>
                         <th className="px-4 py-3">Beneficiario</th>
                         <th className="px-4 py-3">Asunto</th>
-                        <th className="px-4 py-3">Accion</th>
+                        <th className="px-4 py-3">Tipo</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2668,7 +5008,7 @@ function Dashboard() {
                         <tr>
                           <td
                             className="px-4 py-4 text-ink/60"
-                            colSpan={6}
+                            colSpan={8}
                           >
                             {listadoEstado === "loading"
                               ? "Cargando..."
@@ -2678,78 +5018,106 @@ function Dashboard() {
                       )}
                       {listadoResultados.map((item) => (
                         <tr
-                          key={item.codinum}
-                          className="border-t border-ink/10"
-                        >
-                          <td className="px-4 py-3 font-semibold text-ink">
-                            {item.codigo}-{item.numero}-{item.anio}
-                          </td>
-                          <td className="px-4 py-3 text-ink/60">
-                            {item.fechainicio
-                              ? new Date(item.fechainicio).toLocaleDateString()
-                              : "N/D"}
-                          </td>
-                          <td className="px-4 py-3 text-ink/60">
-                            {item.caja || "N/D"}
-                          </td>
-                          <td className="px-4 py-3 text-ink/60">
-                            {item.beneficiario || "N/D"}
-                          </td>
-                        <td className="px-4 py-3 text-ink/60">
-                          <span className="line-clamp-2 block">
-                            {item.asunto || "N/D"}
-                          </span>
-                        </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                aria-label="Ver expediente"
-                                title="Ver expediente"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-moss/30 bg-moss/10 text-base font-semibold text-moss transition hover:bg-moss/20"
-                                onClick={() => {
-                                  setSeccionActiva("Consulta de Expedientes");
-                                  setCodigo(item.codigo ?? "");
-                                  setNumero(String(item.numero ?? ""));
-                                  setAnio(String(item.anio ?? ""));
-                                  fetchExpediente(
-                                    item.codigo ?? "",
-                                    String(item.numero ?? ""),
-                                    String(item.anio ?? "")
-                                  );
-                                }}
-                              >
-                                →
-                              </button>
-                              <button
-                                type="button"
-                                aria-label="Modificar expediente"
-                                title="Modificar expediente"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink/15 bg-white text-base font-semibold text-ink transition hover:border-moss/40 hover:bg-moss/5"
-                                onClick={() => {
-                                  const codigoSel = item.codigo ?? "";
-                                  const numeroSel = String(item.numero ?? "");
-                                  const anioSel = String(item.anio ?? "");
-                                  setSeccionActiva(
-                                    "Modificacion de Expedientes"
-                                  );
-                                  setModificacionKey({
-                                    codigo: codigoSel,
-                                    numero: numeroSel,
-                                    anio: anioSel,
-                                  });
-                                  buscarParaModificar(
-                                    codigoSel,
-                                    numeroSel,
-                                    anioSel
-                                  );
-                                }}
-                              >
-                                ✎
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+  key={item.codinum}
+  className="border-t border-ink/10"
+>
+  <td className="px-4 py-3">
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        aria-label="Ver expediente"
+        title="Ver expediente"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-moss/30 bg-moss/10 text-moss transition hover:bg-moss/20"
+        onClick={() => {
+          setSeccionActiva("Consulta de Expedientes");
+          setCodigo(item.codigo ?? "");
+          setNumero(String(item.numero ?? ""));
+          setAnio(String(item.anio ?? ""));
+          fetchExpediente(
+            item.codigo ?? "",
+            String(item.numero ?? ""),
+            String(item.anio ?? "")
+          );
+        }}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="M21 21l-4.3-4.3" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Modificar expediente"
+        title="Modificar expediente"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink/15 bg-white text-ink transition hover:border-moss/40 hover:bg-moss/5"
+        onClick={() => {
+          const codigoSel = item.codigo ?? "";
+          const numeroSel = String(item.numero ?? "");
+          const anioSel = String(item.anio ?? "");
+          setSeccionActiva("Modificacion de Expedientes");
+          setModificacionKey({
+            codigo: codigoSel,
+            numero: numeroSel,
+            anio: anioSel,
+          });
+          buscarParaModificar(
+            codigoSel,
+            numeroSel,
+            anioSel
+          );
+        }}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      </button>
+    </div>
+  </td>
+  <td className="px-4 py-3 font-semibold text-ink">
+    {item.codigo}-{item.numero}-{item.anio}
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    {item.codinum || "N/D"}
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    {item.fechainicio
+      ? new Date(item.fechainicio).toLocaleDateString()
+      : "N/D"}
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    {item.caja || "N/D"}
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    {item.beneficiario || "N/D"}
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    <span className="line-clamp-2 block">
+      {item.asunto || "N/D"}
+    </span>
+  </td>
+  <td className="px-4 py-3 text-ink/60">
+    {etiquetaTipo(item.tipo)}
+  </td>
+</tr>
                       ))}
                     </tbody>
                   </table>
@@ -2767,11 +5135,49 @@ function Dashboard() {
                     <h3 className="font-display text-xl font-semibold text-ink">
                       Expediente
                     </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!expediente) return;
+                        setSeccionActiva("Modificacion de Expedientes");
+                        setModificacionKey({
+                          codigo: expediente.codigo ?? "",
+                          numero: String(expediente.numero ?? ""),
+                          anio: String(expediente.anio ?? ""),
+                        });
+                        buscarParaModificar(
+                          expediente.codigo ?? "",
+                          String(expediente.numero ?? ""),
+                          String(expediente.anio ?? "")
+                        );
+                      }}
+                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-moss/40 hover:bg-moss/5"
+                      aria-label="Modificar expediente"
+                      title="Modificar expediente"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                   </div>
                   <div className="mt-4 space-y-3 text-sm text-ink/70">
                     <p>
                       <span className="font-semibold text-ink">Asunto:</span>{" "}
                       {expediente.asunto || "Sin detalle"}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-ink">Tipo:</span>{" "}
+                      {etiquetaTipo(expediente.tipo)}
                     </p>
                     <p>
                       <span className="font-semibold text-ink">Iniciador:</span>{" "}
@@ -3302,6 +5708,89 @@ function Dashboard() {
             </div>
           </div>
         )}
+        <div className="fixed bottom-6 right-6 z-40">
+          {chatAbierto && (
+            <div className="mb-2 w-[320px] overflow-hidden rounded-3xl border border-ink/10 bg-white shadow-haze">
+              <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <img src={sidIcon} alt="Sid" className="h-8 w-8" />
+                  Sid
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full px-2 py-1 text-xs text-ink/60 hover:bg-ink/5"
+                  onClick={() => setChatAbierto(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div
+                ref={chatScrollRef}
+                className="max-h-64 space-y-2 overflow-y-auto px-4 py-3 text-sm"
+              >
+                {chatMensajes.map((msg, index) => (
+                  <div
+                    key={`${msg.role}-${index}`}
+                    className={`rounded-2xl px-3 py-2 ${
+                      msg.role === "user"
+                        ? "ml-auto max-w-[85%] bg-ink text-stone"
+                        : "max-w-[85%] bg-stone text-ink"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                ))}
+                {chatEstado === "loading" && (
+                  <div className="max-w-[85%] rounded-2xl bg-stone px-3 py-2 text-ink">
+                    Pensando...
+                  </div>
+                )}
+              </div>
+              {chatError && (
+                <div className="px-4 pb-2 text-xs text-red-600">
+                  {chatError}
+                </div>
+              )}
+              <form
+                className="border-t border-ink/10 px-4 py-3"
+                onSubmit={handleEnviarChat}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={chatInputRef}
+                    className="w-full rounded-full border border-ink/15 bg-white px-3 py-2 text-xs text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                    placeholder="Escribi tu consulta..."
+                    value={chatInput}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    disabled={chatEstado === "loading"}
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-ink px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={chatEstado === "loading"}
+                  >
+                    Enviar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setChatAbierto((prev) => !prev)}
+            className={`flex items-center justify-center rounded-full bg-ink text-stone shadow-haze transition hover:bg-moss ${
+              chatAbierto ? "h-16 w-16" : "h-20 w-20"
+            }`}
+            aria-label="Abrir chat con Sid"
+            title="Abrir chat con Sid"
+          >
+            <img
+              src={sidIcon}
+              alt="Sid"
+              className={chatAbierto ? "h-10 w-10" : "h-12 w-12"}
+            />
+          </button>
+        </div>
         {partidaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-haze">
@@ -3421,7 +5910,11 @@ function Dashboard() {
         </div>
       )}
 
-</main>
+      </main>
+      <footer className="border-t border-ink/10 bg-white/80 px-6 py-6 text-center text-xs text-ink/60">
+        Seguimiento Interno de Expedientes · Ministerio de Desarrollo Humano ·
+        Secretaria de Niñez, Adolescencia y Familia
+      </footer>
     </div>
   );
 }

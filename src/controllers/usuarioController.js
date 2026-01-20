@@ -4,7 +4,17 @@ import {
   obtenerUsuarioPorId,
   actualizarUsuario,
   eliminarUsuario,
+  actualizarPasswordUsuario,
 } from "../models/usuarioModel.js";
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 10;
+
+function esInformatica(req) {
+  return (
+    req.user?.nivel === "S" || String(req.user?.codigosector || "") === "1"
+  );
+}
 
 export async function listarUsuarios(_req, res, next) {
   try {
@@ -16,6 +26,9 @@ export async function listarUsuarios(_req, res, next) {
 }
 
 export async function crearUsuario(req, res, next) {
+  if (!esInformatica(req)) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
   const nuevoUsuario = req.body;
 
   if (!nuevoUsuario?.nombre) {
@@ -58,6 +71,9 @@ export async function obtenerUsuario(req, res, next) {
 }
 
 export async function actualizarUsuarioController(req, res, next) {
+  if (!esInformatica(req)) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
   const id = Number(req.params.id);
   const data = req.body;
 
@@ -90,6 +106,9 @@ export async function actualizarUsuarioController(req, res, next) {
 }
 
 export async function borrarUsuario(req, res, next) {
+  if (!esInformatica(req)) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: "ID invalido" });
@@ -98,6 +117,32 @@ export async function borrarUsuario(req, res, next) {
   try {
     const eliminado = await eliminarUsuario(id);
     if (!eliminado) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPasswordUsuario(req, res, next) {
+  if (!esInformatica(req)) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
+  const id = Number(req.params.id);
+  const { password_nueva } = req.body || {};
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: "ID invalido" });
+  }
+  if (!password_nueva) {
+    return res.status(400).json({ error: "Falta password_nueva" });
+  }
+
+  try {
+    const hash = await bcrypt.hash(password_nueva, SALT_ROUNDS);
+    const actualizado = await actualizarPasswordUsuario(id, hash);
+    if (!actualizado) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
     res.status(204).send();

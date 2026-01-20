@@ -5,13 +5,23 @@ import {
   obtenerExpedientePorClave,
   obtenerExpedientesFiltrados,
   actualizarExpedientePorClave,
+  deshabilitarExpedientePorClave,
+  obtenerExpedientesPorClaveLista,
 } from "../models/expedienteModel.js";
+import { deshabilitarMovimientosPorExpediente } from "../models/movimientoModel.js";
 
 export async function listarExpedientes(_req, res, next) {
   try {
-    const { fecha_inicio, fecha_fin, caja, beneficiario, asunto } =
+    const { fecha_inicio, fecha_fin, caja, beneficiario, asunto, tipo, codigo } =
       _req.query || {};
-    const hayFiltro = fecha_inicio || fecha_fin || caja || beneficiario || asunto;
+    const hayFiltro =
+      fecha_inicio ||
+      fecha_fin ||
+      caja ||
+      beneficiario ||
+      asunto ||
+      tipo ||
+      codigo;
     const expedientes = hayFiltro
       ? await obtenerExpedientesFiltrados({
           fechaInicio: fecha_inicio,
@@ -19,6 +29,8 @@ export async function listarExpedientes(_req, res, next) {
           caja,
           beneficiario,
           asunto,
+          tipo,
+          codigo,
         })
       : await obtenerExpedientes();
     res.json(expedientes);
@@ -44,6 +56,8 @@ export async function crearExpediente(req, res, next) {
 
 export async function obtenerExpedientePorClaveController(req, res, next) {
   const { codigo, numero, anio } = req.params;
+  const incluirDeshabilitados =
+    String(req.query?.incluir_deshabilitados || "") === "1";
   const numeroInt = Number(numero);
   const anioInt = Number(anio);
 
@@ -57,7 +71,8 @@ export async function obtenerExpedientePorClaveController(req, res, next) {
     const expediente = await obtenerExpedientePorClave(
       codigo,
       numeroInt,
-      anioInt
+      anioInt,
+      incluirDeshabilitados
     );
     if (!expediente) {
       return res.status(404).json({ error: "Expediente no encontrado" });
@@ -102,12 +117,77 @@ export async function actualizarExpedientePorClaveController(req, res, next) {
   }
 }
 
+export async function deshabilitarExpedienteController(req, res, next) {
+  const { codigo, numero, anio } = req.params;
+  const numeroInt = Number(numero);
+  const anioInt = Number(anio);
+
+  if (!codigo || !Number.isInteger(numeroInt) || !Number.isInteger(anioInt)) {
+    return res
+      .status(400)
+      .json({ error: "Parametros invalidos: codigo, numero, anio" });
+  }
+
+  const esInformatica =
+    req.user?.nivel === "S" ||
+    String(req.user?.codigosector || "") === "1";
+  if (!esInformatica) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
+
+  try {
+    await pool.query("BEGIN");
+    const expediente = await deshabilitarExpedientePorClave(
+      codigo,
+      numeroInt,
+      anioInt
+    );
+    if (!expediente) {
+      await pool.query("ROLLBACK");
+      return res.status(404).json({ error: "Expediente no encontrado" });
+    }
+    await deshabilitarMovimientosPorExpediente(codigo, numeroInt, anioInt);
+    await pool.query("COMMIT");
+    res.json(expediente);
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    next(err);
+  }
+}
+
+export async function listarExpedientesPorClave(req, res, next) {
+  const { codigo, numero, anio } = req.params;
+  const incluirDeshabilitados =
+    String(req.query?.incluir_deshabilitados || "") === "1";
+  const numeroInt = Number(numero);
+  const anioInt = Number(anio);
+
+  if (!codigo || !Number.isInteger(numeroInt) || !Number.isInteger(anioInt)) {
+    return res
+      .status(400)
+      .json({ error: "Parametros invalidos: codigo, numero, anio" });
+  }
+
+  try {
+    const expedientes = await obtenerExpedientesPorClaveLista(
+      codigo,
+      numeroInt,
+      anioInt,
+      incluirDeshabilitados
+    );
+    res.json(expedientes);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function cargarExpediente(req, res, next) {
   const data = req.body || {};
   const {
     codigo,
     numero,
     anio,
+    tipo,
     fechainicio,
     fechaentrada,
     fechacarga,
@@ -155,7 +235,7 @@ export async function cargarExpediente(req, res, next) {
       numeroInt,
       anioInt
     );
-    if (existente) {
+    if (existente && existente.habilitado !== false) {
       return res.status(409).json({
         error: "Ya existe un expediente con el mismo codigo, numero y anio",
       });
@@ -182,6 +262,7 @@ export async function cargarExpediente(req, res, next) {
          codigo,
          numero,
          anio,
+         tipo,
          fechainicio,
          asunto,
          iniciador,
@@ -199,13 +280,14 @@ export async function cargarExpediente(req, res, next) {
        )
        VALUES (
          $1, $2, $3, $4, $5, $6, $7, $8, $9,
-         $10, $11, $12, $13, $14, $15, $16, $17
+         $10, $11, $12, $13, $14, $15, $16, $17, $18
        )
        RETURNING codinum, codigo, numero, anio`,
       [
         codigo,
         numeroInt,
         anioInt,
+        tipo ?? null,
         fechainicio ?? null,
         asuntoUpper ?? null,
         iniciador ?? null,

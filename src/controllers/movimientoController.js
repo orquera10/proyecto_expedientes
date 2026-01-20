@@ -4,6 +4,8 @@ import {
   obtenerMovimientosPorExpediente,
   obtenerUltimasSalidas,
   obtenerUltimasEntradas,
+  deshabilitarMovimientoPorId,
+  habilitarMovimientoPorId,
 } from "../models/movimientoModel.js";
 import pool from "../config/db.js";
 
@@ -51,6 +53,76 @@ export async function listarMovimientosPorExpediente(req, res, next) {
       anioInt
     );
     res.json(movimientos);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deshabilitarMovimiento(req, res, next) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: "Id de movimiento invalido" });
+  }
+
+  const esInformatica =
+    req.user?.nivel === "S" ||
+    String(req.user?.codigosector || "") === "1";
+  if (!esInformatica) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
+
+  try {
+    const actualizado = await deshabilitarMovimientoPorId(id);
+    if (!actualizado) {
+      return res.status(404).json({ error: "Movimiento no encontrado" });
+    }
+    res.json(actualizado);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function habilitarMovimiento(req, res, next) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: "Id de movimiento invalido" });
+  }
+
+  const esInformatica =
+    req.user?.nivel === "S" ||
+    String(req.user?.codigosector || "") === "1";
+  if (!esInformatica) {
+    return res.status(403).json({ error: "No autorizado" });
+  }
+
+  try {
+    const movimiento = await pool.query(
+      "SELECT codigo, numero, anio FROM movimiento WHERE id = $1",
+      [id]
+    );
+    if (movimiento.rowCount === 0) {
+      return res.status(404).json({ error: "Movimiento no encontrado" });
+    }
+    const { codigo, numero, anio } = movimiento.rows[0];
+    const expediente = await pool.query(
+      `SELECT 1
+       FROM expedientes
+       WHERE codigo = $1 AND numero = $2 AND anio = $3
+         AND habilitado IS NOT FALSE
+       LIMIT 1`,
+      [codigo, numero, anio]
+    );
+    if (expediente.rowCount === 0) {
+      return res
+        .status(409)
+        .json({ error: "Expediente deshabilitado" });
+    }
+
+    const actualizado = await habilitarMovimientoPorId(id);
+    if (!actualizado) {
+      return res.status(404).json({ error: "Movimiento no encontrado" });
+    }
+    res.json(actualizado);
   } catch (err) {
     next(err);
   }
@@ -190,7 +262,8 @@ export async function registrarEntrada(req, res, next) {
     const expediente = await pool.query(
       `SELECT codigo, numero, anio
        FROM expedientes
-       WHERE codigo = $1 AND numero = $2 AND anio = $3`,
+       WHERE codigo = $1 AND numero = $2 AND anio = $3
+         AND habilitado IS NOT FALSE`,
       [codigo, numeroInt, anioInt]
     );
     if (expediente.rowCount === 0) {
@@ -312,7 +385,8 @@ export async function registrarSalida(req, res, next) {
     const expediente = await pool.query(
       `SELECT codigo, numero, anio
        FROM expedientes
-       WHERE codigo = $1 AND numero = $2 AND anio = $3`,
+       WHERE codigo = $1 AND numero = $2 AND anio = $3
+         AND habilitado IS NOT FALSE`,
       [codigo, numeroInt, anioInt]
     );
     if (expediente.rowCount === 0) {

@@ -86,12 +86,6 @@ function toDate(raw) {
   return `${year}-${month}-${day}`;
 }
 
-function normalizarAnio(rawAnio) {
-  const anio = toInt(rawAnio);
-  if (!anio) return null;
-  if (anio < 100) return 2000 + anio;
-  return anio;
-}
 
 function toBooleanText(raw) {
   const text = toString(raw).toUpperCase();
@@ -139,7 +133,7 @@ function leerMemo(fpt, blockSize, pointer) {
 }
 
 async function seed() {
-  await pool.query("TRUNCATE TABLE movimiento");
+  await pool.query("TRUNCATE movimiento RESTART IDENTITY CASCADE");
   const rutaDbf = path.join(process.cwd(), "db_vieja", "movimiento.dbf");
   const rutaFpt = path.join(process.cwd(), "db_vieja", "movimiento.FPT");
   const fpt = fs.readFileSync(rutaFpt);
@@ -186,7 +180,7 @@ async function seed() {
     movimientos.push({
       codigo: toString(row.CODIGO) || null,
       numero,
-      anio: normalizarAnio(anioRaw),
+      anio: toInt(anioRaw),
       fechamov: fechaMov,
       origen: toString(row.ORIGEN) || null,
       destino: toString(row.DESTINO) || null,

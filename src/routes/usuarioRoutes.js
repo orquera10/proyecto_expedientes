@@ -5,6 +5,7 @@ import {
   obtenerUsuario,
   actualizarUsuarioController,
   borrarUsuario,
+  resetPasswordUsuario,
 } from "../controllers/usuarioController.js";
 import { verificarToken } from "../middlewares/authMiddleware.js";
 
@@ -16,6 +17,7 @@ router.get("/", listarUsuarios);
 router.post("/", crearUsuario);
 router.get("/:id", obtenerUsuario);
 router.put("/:id", actualizarUsuarioController);
+router.post("/:id/password", resetPasswordUsuario);
 router.delete("/:id", borrarUsuario);
 
 export default router;

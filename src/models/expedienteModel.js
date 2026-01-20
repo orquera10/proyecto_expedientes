@@ -6,6 +6,7 @@ export async function obtenerExpedientes() {
             codigo,
             numero,
             anio,
+            tipo,
             fechainicio,
             asunto,
             iniciador,
@@ -33,6 +34,8 @@ export async function obtenerExpedientesFiltrados({
   caja,
   beneficiario,
   asunto,
+  tipo,
+  codigo,
 }) {
   const clauses = [];
   const values = [];
@@ -57,6 +60,14 @@ export async function obtenerExpedientesFiltrados({
     values.push(`%${asunto}%`);
     clauses.push(`asunto ILIKE $${values.length}`);
   }
+  if (tipo) {
+    values.push(tipo);
+    clauses.push(`tipo = $${values.length}`);
+  }
+  if (codigo) {
+    values.push(`%${codigo}%`);
+    clauses.push(`codigo ILIKE $${values.length}`);
+  }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
@@ -65,6 +76,7 @@ export async function obtenerExpedientesFiltrados({
             codigo,
             numero,
             anio,
+            tipo,
             fechainicio,
             asunto,
             beneficiario,
@@ -72,7 +84,7 @@ export async function obtenerExpedientesFiltrados({
             habilitado
      FROM expedientes
      ${where}
-     ORDER BY fechainicio DESC NULLS LAST, codinum DESC`,
+     ORDER BY codinum DESC`,
     values
   );
   return result.rows;
@@ -84,6 +96,7 @@ export async function guardarExpediente(data) {
        codigo,
        numero,
        anio,
+       tipo,
        fechainicio,
        asunto,
        iniciador,
@@ -101,12 +114,13 @@ export async function guardarExpediente(data) {
      )
      VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8, $9,
-       $10, $11, $12, $13, $14, $15, $16, $17
+       $10, $11, $12, $13, $14, $15, $16, $17, $18
      )
      RETURNING codinum,
                codigo,
                numero,
                anio,
+               tipo,
                fechainicio,
                asunto,
                iniciador,
@@ -126,6 +140,7 @@ export async function guardarExpediente(data) {
       data.codigo ?? null,
       data.numero,
       data.anio ?? null,
+      data.tipo ?? null,
       data.fechainicio ?? null,
       data.asunto ?? null,
       data.iniciador ?? null,
@@ -145,12 +160,21 @@ export async function guardarExpediente(data) {
   return result.rows[0];
 }
 
-export async function obtenerExpedientePorClave(codigo, numero, anio) {
+export async function obtenerExpedientePorClave(
+  codigo,
+  numero,
+  anio,
+  incluirDeshabilitados = false
+) {
+  const whereHabilitado = incluirDeshabilitados
+    ? ""
+    : " AND habilitado IS NOT FALSE";
   const result = await pool.query(
     `SELECT codinum,
             codigo,
             numero,
             anio,
+            tipo,
             fechainicio,
             asunto,
             iniciador,
@@ -167,7 +191,9 @@ export async function obtenerExpedientePorClave(codigo, numero, anio) {
             habilitado,
             created_at
      FROM expedientes
-     WHERE codigo = $1 AND numero = $2 AND anio = $3`,
+     WHERE codigo = $1 AND numero = $2 AND anio = $3${whereHabilitado}
+     ORDER BY habilitado ASC NULLS LAST, codinum DESC
+     LIMIT 1`,
     [codigo, numero, anio]
   );
   return result.rows[0];
@@ -182,12 +208,14 @@ export async function actualizarExpedientePorClave(codigo, numero, anio, data) {
          beneficiario = $4,
          fojas = $5,
          cajainterna = $6,
-         caja = $7
-     WHERE codigo = $8 AND numero = $9 AND anio = $10
+         caja = $7,
+         tipo = COALESCE($8, tipo)
+     WHERE codigo = $9 AND numero = $10 AND anio = $11
      RETURNING codinum,
                codigo,
                numero,
                anio,
+               tipo,
                fechainicio,
                asunto,
                iniciador,
@@ -205,10 +233,49 @@ export async function actualizarExpedientePorClave(codigo, numero, anio, data) {
       data.fojas ?? null,
       data.cajainterna ?? null,
       data.caja ?? null,
+      data.tipo ?? null,
       codigo,
       numero,
       anio,
     ]
   );
   return result.rows[0];
+}
+
+export async function deshabilitarExpedientePorClave(codigo, numero, anio) {
+  const result = await pool.query(
+    `UPDATE expedientes
+     SET habilitado = FALSE
+     WHERE codigo = $1 AND numero = $2 AND anio = $3
+     RETURNING codinum, codigo, numero, anio, habilitado`,
+    [codigo, numero, anio]
+  );
+  return result.rows[0];
+}
+
+export async function obtenerExpedientesPorClaveLista(
+  codigo,
+  numero,
+  anio,
+  incluirDeshabilitados = false
+) {
+  const whereHabilitado = incluirDeshabilitados
+    ? ""
+    : " AND habilitado IS NOT FALSE";
+  const result = await pool.query(
+    `SELECT codinum,
+            codigo,
+            numero,
+            anio,
+            tipo,
+            fechainicio,
+            asunto,
+            beneficiario,
+            habilitado
+     FROM expedientes
+     WHERE codigo = $1 AND numero = $2 AND anio = $3${whereHabilitado}
+     ORDER BY habilitado ASC NULLS LAST, codinum DESC`,
+    [codigo, numero, anio]
+  );
+  return result.rows;
 }

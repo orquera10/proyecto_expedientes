@@ -86,19 +86,108 @@ function toDate(raw) {
   return `${year}-${month}-${day}`;
 }
 
-function normalizarAnio(rawAnio, fechaInicio) {
-  const anio = toInt(rawAnio);
-  if (!anio) {
-    return fechaInicio ? Number(fechaInicio.slice(0, 4)) : null;
-  }
-  if (anio < 100) {
-    return 2000 + anio;
-  }
-  if (anio > 2100 && fechaInicio) {
-    return Number(fechaInicio.slice(0, 4));
-  }
-  return anio;
+function normalizeText(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
+
+function classifyTipo(asunto) {
+  const texto = normalizeText(asunto);
+  if (!texto) return "Otro";
+
+  const rules = [
+    {
+      tipo: "Subsidios",
+      keywords: ["subsidio", "acogimiento", "sustituta"],
+    },
+    {
+      tipo: "Compras/Contrataciones",
+      keywords: [
+        "compra",
+        "compras",
+        "contratacion",
+        "contrataciones",
+        "previsiones",
+        "utiles",
+        "utiles escolares",
+        "indumentaria",
+        "limpieza",
+        "arreglo",
+        "refaccion",
+      ],
+    },
+    {
+      tipo: "Anticipos",
+      keywords: ["anticipo", "anticipos", "rendir cuentas"],
+    },
+    {
+      tipo: "Recursos Humanos",
+      keywords: [
+        "recursos humanos",
+        "solicitud de articulos",
+        "articulos",
+        "accidente de trabajo",
+        "renuncia",
+        "adicional ley",
+        "sancion",
+        "sanciones",
+        "novedades",
+        "pedido de informe",
+        "pedidos de informe",
+      ],
+    },
+    {
+      tipo: "Cajas Chicas",
+      keywords: ["caja chica", "cajas chicas"],
+    },
+    {
+      tipo: "Aprobacion de Proyectos",
+      keywords: ["aprobacion de proyectos", "jornada", "capacitacion", "evento"],
+    },
+    {
+      tipo: "Pagos/Servicios/Alquiler",
+      keywords: [
+        "pago",
+        "factura",
+        "alquiler",
+        "servicio publico",
+        "servicios publicos",
+        "fireserver",
+        "fire server",
+      ],
+    },
+    {
+      tipo: "Viaticos",
+      keywords: ["viatico", "viaticos"],
+    },
+    {
+      tipo: "Fondos/Partidas/Refuerzos",
+      keywords: [
+        "habilitacion de fondos",
+        "transferencia",
+        "creacion de partidas",
+        "partidas",
+        "refuerzo",
+        "refuerzos",
+        "compromiso definitivo",
+        "reemplazos",
+      ],
+    },
+  ];
+
+  for (const rule of rules) {
+    if (rule.keywords.some((keyword) => texto.includes(keyword))) {
+      return rule.tipo;
+    }
+  }
+
+  return "Otro";
+}
+
 
 function toBooleanText(raw) {
   const text = toString(raw).toUpperCase();
@@ -112,6 +201,8 @@ async function seed() {
   const rutaDbf = path.join(process.cwd(), "db_vieja", "expte.dbf");
   const { rows } = leerDbf(rutaDbf);
 
+  await pool.query("TRUNCATE expedientes RESTART IDENTITY CASCADE");
+
   const expedientesMap = new Map();
   for (const row of rows) {
     const codinum = toInt(row.CODIGONUM);
@@ -122,13 +213,15 @@ async function seed() {
     const habilitado = !(row._deleted || false);
     const fechaInicio = toDate(row.FECHAINICI);
     const anioRaw = getField(row, ["AO", "AÑO", "ANIO", "ANO"]);
+    const asunto = toString(row.ASUNTO) || null;
     expedientesMap.set(codinum, {
       codinum,
       codigo: toString(row.CODIGO) || null,
       numero,
-      anio: normalizarAnio(anioRaw, fechaInicio),
+      anio: toInt(anioRaw),
       fechainicio: fechaInicio,
-      asunto: toString(row.ASUNTO) || null,
+      asunto,
+      tipo: classifyTipo(asunto),
       iniciador: toString(row.INICIADOPO) || null,
       fojas: toInt(row.FOJAS),
       fechacarga: toDate(row.FECHACARGA),
@@ -155,8 +248,8 @@ async function seed() {
     const chunk = expedientes.slice(i, i + chunkSize);
     const placeholders = chunk
       .map((_, idx) => {
-        const base = idx * 18;
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, $${base + 18})`;
+        const base = idx * 19;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, $${base + 18}, $${base + 19})`;
       })
       .join(", ");
     const values = chunk.flatMap((e) => [
@@ -164,6 +257,7 @@ async function seed() {
       e.codigo,
       e.numero,
       e.anio,
+      e.tipo,
       e.fechainicio,
       e.asunto,
       e.iniciador,
@@ -185,6 +279,7 @@ async function seed() {
         codigo,
         numero,
         anio,
+        tipo,
         fechainicio,
         asunto,
         iniciador,
@@ -206,6 +301,7 @@ async function seed() {
         codigo = EXCLUDED.codigo,
         numero = EXCLUDED.numero,
         anio = EXCLUDED.anio,
+        tipo = EXCLUDED.tipo,
         fechainicio = EXCLUDED.fechainicio,
         asunto = EXCLUDED.asunto,
         iniciador = EXCLUDED.iniciador,
@@ -232,3 +328,4 @@ seed().catch((err) => {
   console.error("Error cargando expedientes:", err);
   process.exitCode = 1;
 });
+

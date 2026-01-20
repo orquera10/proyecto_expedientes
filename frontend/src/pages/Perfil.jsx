@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -10,6 +10,36 @@ function Perfil() {
   const [estado, setEstado] = useState("idle");
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [sectorNombre, setSectorNombre] = useState("");
+  const rolUsuario = usuario?.tipo ?? usuario?.nivel;
+  const rolLabel = rolUsuario === "S" ? "Superusuario" : "Usuario";
+
+  useEffect(() => {
+    if (!usuario?.codigosector) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    async function cargarSector() {
+      try {
+        const response = await fetch(`${API_BASE}/api/sectores`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const sector = payload.find(
+          (item) => String(item.codigosector) === String(usuario.codigosector)
+        );
+        setSectorNombre(sector?.sector || "");
+      } catch {
+        setSectorNombre("");
+      }
+    }
+
+    cargarSector();
+  }, [usuario?.codigosector]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -67,6 +97,10 @@ function Perfil() {
             <p className="text-sm text-ink/60">
               {usuario?.email || "Sin email"}
             </p>
+            <p className="text-sm text-ink/60">
+              {sectorNombre || "Sin sector"}
+            </p>
+            <p className="text-sm text-ink/60">{rolLabel}</p>
           </div>
 
           <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
