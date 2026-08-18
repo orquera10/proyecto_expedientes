@@ -1,4 +1,9 @@
 import pool from "../config/db.js";
+import {
+  BotSalidaError,
+  prepararSalidaParaBot,
+  registrarSalidaParaBot,
+} from "../services/botSalidaService.js";
 
 export async function consultarExpedienteParaBot(req, res, next) {
   const codigo = String(req.params.codigo || "").trim();
@@ -53,5 +58,40 @@ export async function consultarExpedienteParaBot(req, res, next) {
     });
   } catch (err) {
     next(err);
+  }
+}
+
+function responderErrorSalida(error, res, next) {
+  if (error instanceof BotSalidaError) {
+    return res.status(error.status).json({ error: error.message });
+  }
+  return next(error);
+}
+
+export async function prepararSalidaExpedienteParaBot(req, res, next) {
+  try {
+    const result = await prepararSalidaParaBot({
+      telefono: req.query.telefono,
+      codigo: req.params.codigo,
+      numero: req.params.numero,
+      anio: req.params.anio,
+    });
+    return res.json(result);
+  } catch (error) {
+    return responderErrorSalida(error, res, next);
+  }
+}
+
+export async function registrarSalidaExpedienteParaBot(req, res, next) {
+  try {
+    const result = await registrarSalidaParaBot({
+      ...req.body,
+      codigo: req.params.codigo,
+      numero: req.params.numero,
+      anio: req.params.anio,
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    return responderErrorSalida(error, res, next);
   }
 }
