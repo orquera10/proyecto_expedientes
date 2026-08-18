@@ -4,6 +4,11 @@ import {
   prepararSalidaParaBot,
   registrarSalidaParaBot,
 } from "../services/botSalidaService.js";
+import {
+  BotEntradaError,
+  prepararEntradaParaBot,
+  registrarEntradaParaBot,
+} from "../services/botEntradaService.js";
 
 export async function consultarExpedienteParaBot(req, res, next) {
   const codigo = String(req.params.codigo || "").trim();
@@ -62,10 +67,38 @@ export async function consultarExpedienteParaBot(req, res, next) {
 }
 
 function responderErrorSalida(error, res, next) {
-  if (error instanceof BotSalidaError) {
+  if (error instanceof BotSalidaError || error instanceof BotEntradaError) {
     return res.status(error.status).json({ error: error.message });
   }
   return next(error);
+}
+
+export async function prepararEntradaExpedienteParaBot(req, res, next) {
+  try {
+    const result = await prepararEntradaParaBot({
+      telefono: req.query.telefono,
+      codigo: req.params.codigo,
+      numero: req.params.numero,
+      anio: req.params.anio,
+    });
+    return res.json(result);
+  } catch (error) {
+    return responderErrorSalida(error, res, next);
+  }
+}
+
+export async function registrarEntradaExpedienteParaBot(req, res, next) {
+  try {
+    const result = await registrarEntradaParaBot({
+      ...req.body,
+      codigo: req.params.codigo,
+      numero: req.params.numero,
+      anio: req.params.anio,
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    return responderErrorSalida(error, res, next);
+  }
 }
 
 export async function prepararSalidaExpedienteParaBot(req, res, next) {
