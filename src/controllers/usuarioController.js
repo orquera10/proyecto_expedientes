@@ -7,6 +7,7 @@ import {
   actualizarPasswordUsuario,
 } from "../models/usuarioModel.js";
 import bcrypt from "bcrypt";
+import { normalizeArgentinePhone } from "../utils/phone.js";
 
 const SALT_ROUNDS = 10;
 
@@ -29,7 +30,7 @@ export async function crearUsuario(req, res, next) {
   if (!esInformatica(req)) {
     return res.status(403).json({ error: "No autorizado" });
   }
-  const nuevoUsuario = req.body;
+  const nuevoUsuario = { ...req.body };
 
   if (!nuevoUsuario?.nombre) {
     return res
@@ -41,13 +42,19 @@ export async function crearUsuario(req, res, next) {
       .status(400)
       .json({ error: "Falta usuario o email para identificar el login" });
   }
+  if (nuevoUsuario.telefono) {
+    nuevoUsuario.telefono = normalizeArgentinePhone(nuevoUsuario.telefono);
+    if (!nuevoUsuario.telefono) {
+      return res.status(400).json({ error: "Numero de telefono invalido" });
+    }
+  }
 
   try {
     const usuarioCreado = await guardarUsuario(nuevoUsuario);
     res.status(201).json(usuarioCreado);
   } catch (err) {
     if (err.code === "23505") {
-      return res.status(409).json({ error: "El email ya existe" });
+      return res.status(409).json({ error: "El usuario, email o telefono ya existe" });
     }
     next(err);
   }
@@ -75,7 +82,7 @@ export async function actualizarUsuarioController(req, res, next) {
     return res.status(403).json({ error: "No autorizado" });
   }
   const id = Number(req.params.id);
-  const data = req.body;
+  const data = { ...req.body };
 
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: "ID invalido" });
@@ -90,6 +97,12 @@ export async function actualizarUsuarioController(req, res, next) {
       .status(400)
       .json({ error: "Falta usuario o email para identificar el login" });
   }
+  if (data.telefono) {
+    data.telefono = normalizeArgentinePhone(data.telefono);
+    if (!data.telefono) {
+      return res.status(400).json({ error: "Numero de telefono invalido" });
+    }
+  }
 
   try {
     const actualizado = await actualizarUsuario(id, data);
@@ -99,7 +112,7 @@ export async function actualizarUsuarioController(req, res, next) {
     res.json(actualizado);
   } catch (err) {
     if (err.code === "23505") {
-      return res.status(409).json({ error: "El email ya existe" });
+      return res.status(409).json({ error: "El usuario, email o telefono ya existe" });
     }
     next(err);
   }

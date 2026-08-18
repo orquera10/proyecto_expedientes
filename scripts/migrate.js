@@ -107,6 +107,7 @@ ALTER TABLE usuarios
   ADD COLUMN IF NOT EXISTS nombreusuario TEXT,
   ADD COLUMN IF NOT EXISTS nombre TEXT,
   ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS telefono TEXT,
   ADD COLUMN IF NOT EXISTS password_hash TEXT,
   ADD COLUMN IF NOT EXISTS nivel TEXT,
   ADD COLUMN IF NOT EXISTS codigo TEXT,
@@ -228,6 +229,8 @@ CREATE INDEX IF NOT EXISTS usuarios_codigo_idx ON usuarios (codigo);
 CREATE INDEX IF NOT EXISTS usuarios_usuario_idx ON usuarios (usuario);
 CREATE INDEX IF NOT EXISTS usuarios_nombreusuario_idx ON usuarios (nombreusuario);
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_usuario_unq ON usuarios (usuario);
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_telefono_unq
+  ON usuarios (telefono) WHERE telefono IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS sector_sector_idx ON sector (sector);
 

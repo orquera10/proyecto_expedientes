@@ -98,6 +98,9 @@ function Perfil() {
               {usuario?.email || "Sin email"}
             </p>
             <p className="text-sm text-ink/60">
+              {usuario?.telefono || "Sin telefono de WhatsApp"}
+            </p>
+            <p className="text-sm text-ink/60">
               {sectorNombre || "Sin sector"}
             </p>
             <p className="text-sm text-ink/60">{rolLabel}</p>

@@ -9,11 +9,12 @@ import {
   actualizarPasswordUsuario,
 } from "../models/usuarioModel.js";
 import { revokeToken } from "../utils/tokenStore.js";
+import { normalizeArgentinePhone } from "../utils/phone.js";
 
 const SALT_ROUNDS = 10;
 
 export async function registrar(req, res, next) {
-  const { nombre, email, password, usuario, nivel, codigo, codigosector } =
+  const { nombre, email, telefono, password, usuario, nivel, codigo, codigosector } =
     req.body || {};
 
   if (!nombre || !password) {
@@ -25,6 +26,10 @@ export async function registrar(req, res, next) {
     return res
       .status(400)
       .json({ error: "Falta usuario o email para identificar el login" });
+  }
+  const telefonoNormalizado = telefono ? normalizeArgentinePhone(telefono) : null;
+  if (telefono && !telefonoNormalizado) {
+    return res.status(400).json({ error: "Numero de telefono invalido" });
   }
 
   try {
@@ -39,6 +44,7 @@ export async function registrar(req, res, next) {
       usuario,
       nombre,
       email,
+      telefono: telefonoNormalizado,
       password_hash: hash,
       nivel,
       codigo,
@@ -48,7 +54,7 @@ export async function registrar(req, res, next) {
     res.status(201).json({ token, usuario: usuarioCreado });
   } catch (err) {
     if (err.code === "23505") {
-      return res.status(409).json({ error: "El usuario o email ya existe" });
+      return res.status(409).json({ error: "El usuario, email o telefono ya existe" });
     }
     next(err);
   }

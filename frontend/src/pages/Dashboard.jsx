@@ -79,6 +79,7 @@ function Dashboard() {
     usuario: "",
     nombre: "",
     email: "",
+    telefono: "",
     password: "",
     nivel: "U",
     codigosector: "",
@@ -95,6 +96,7 @@ function Dashboard() {
     usuario: "",
     nombre: "",
     email: "",
+    telefono: "",
     nivel: "U",
     codigosector: "",
     habilitado: true,
@@ -1401,6 +1403,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
           usuario: adminUsuarioForm.usuario || undefined,
           nombre: adminUsuarioForm.nombre.toUpperCase(),
           email: adminUsuarioForm.email || undefined,
+          telefono: adminUsuarioForm.telefono || undefined,
           password: adminUsuarioForm.password,
           nivel: adminUsuarioForm.nivel,
           codigosector: adminUsuarioForm.codigosector || null,
@@ -1423,6 +1426,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
         usuario: "",
         nombre: "",
         email: "",
+        telefono: "",
         password: "",
         nivel: "U",
         codigosector: "",
@@ -1470,7 +1474,8 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
         ? payload.filter((item) => {
             const usuarioVal = String(item.usuario || "").toLowerCase();
             const nombreVal = String(item.nombre || "").toLowerCase();
-            return usuarioVal.includes(query) || nombreVal.includes(query);
+            const telefonoVal = String(item.telefono || "").toLowerCase();
+            return usuarioVal.includes(query) || nombreVal.includes(query) || telefonoVal.includes(query);
           })
         : payload;
 
@@ -1488,6 +1493,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
       usuario: usuario?.usuario || "",
       nombre: usuario?.nombre || "",
       email: usuario?.email || "",
+      telefono: usuario?.telefono || "",
       nivel: usuario?.nivel || "U",
       codigosector: usuario?.codigosector || "",
       habilitado: usuario?.habilitado !== false,
@@ -1521,6 +1527,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             usuario: adminUsuarioEdicion.usuario || undefined,
             nombre: adminUsuarioEdicion.nombre,
             email: adminUsuarioEdicion.email || null,
+            telefono: adminUsuarioEdicion.telefono || null,
             nivel: adminUsuarioEdicion.nivel,
             codigosector: adminUsuarioEdicion.codigosector || null,
             habilitado: adminUsuarioEdicion.habilitado,
@@ -1545,6 +1552,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
         usuario: "",
         nombre: "",
         email: "",
+        telefono: "",
         nivel: "U",
         codigosector: "",
         habilitado: true,
@@ -3188,6 +3196,18 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         }
                         required
                       />
+                      <input
+                        type="tel"
+                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                        placeholder="Telefono WhatsApp (ej. 388 410-4530)"
+                        value={adminUsuarioForm.telefono}
+                        onChange={(event) =>
+                          setAdminUsuarioForm((prev) => ({
+                            ...prev,
+                            telefono: event.target.value,
+                          }))
+                        }
+                      />
                       <select
                         className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                         value={adminUsuarioForm.nivel}
@@ -3240,6 +3260,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                               usuario: "",
                               nombre: "",
                               email: "",
+                              telefono: "",
                               password: "",
                               nivel: "U",
                               codigosector: "",
@@ -3276,7 +3297,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                     >
                       <input
                         className="flex-1 min-w-[220px] rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
-                        placeholder="Buscar por usuario o nombre"
+                        placeholder="Buscar por usuario, nombre o telefono"
                         value={adminUsuariosQuery}
                         onChange={(event) => setAdminUsuariosQuery(event.target.value)}
                       />
@@ -3300,6 +3321,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                             <tr>
                               <th className="px-3 py-2 font-semibold">Usuario</th>
                               <th className="px-3 py-2 font-semibold">Nombre</th>
+                              <th className="px-3 py-2 font-semibold">Telefono</th>
                               <th className="px-3 py-2 font-semibold">Sector</th>
                               <th className="px-3 py-2 font-semibold">Nivel</th>
                               <th className="px-3 py-2 font-semibold">Estado</th>
@@ -3317,6 +3339,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                                 </td>
                                 <td className="px-3 py-2 text-ink/70">
                                   {usuarioItem.nombre || "N/D"}
+                                </td>
+                                <td className="px-3 py-2 text-ink/70">
+                                  {usuarioItem.telefono || "N/D"}
                                 </td>
                                 <td className="px-3 py-2 text-ink/70">
                                   {sectoresMap.get(
@@ -3389,6 +3414,18 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                             <option value="U">Usuario</option>
                             <option value="S">Superusuario</option>
                           </select>
+                          <input
+                            type="tel"
+                            className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+                            placeholder="Telefono WhatsApp"
+                            value={adminUsuarioEdicion.telefono}
+                            onChange={(event) =>
+                              setAdminUsuarioEdicion((prev) => ({
+                                ...prev,
+                                telefono: event.target.value,
+                              }))
+                            }
+                          />
                           <select
                             className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                             value={adminUsuarioEdicion.codigosector}

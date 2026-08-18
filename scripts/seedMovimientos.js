@@ -150,13 +150,6 @@ async function seed() {
   const sectoresSet = new Set(
     sectores.rows.map((row) => String(row.codigosector))
   );
-  const reparticiones = await pool.query(
-    "SELECT codigoreparticion FROM reparticion"
-  );
-  const reparticionesSet = new Set(
-    reparticiones.rows.map((row) => String(row.codigoreparticion))
-  );
-
   const movimientos = [];
   for (const row of rows) {
     const numero = toInt(row.NUMERO);
@@ -202,10 +195,10 @@ async function seed() {
     if (mov.codigosector && !sectoresSet.has(mov.codigosector)) {
       mov.codigosector = null;
     }
-    if (mov.codigoren && !reparticionesSet.has(mov.codigoren)) {
+    if (mov.codigoren && !sectoresSet.has(mov.codigoren)) {
       mov.codigoren = null;
     }
-    if (mov.coddestino && !reparticionesSet.has(mov.coddestino)) {
+    if (mov.coddestino && !sectoresSet.has(mov.coddestino)) {
       mov.coddestino = null;
     }
   }

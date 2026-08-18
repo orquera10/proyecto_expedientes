@@ -1,50 +1,71 @@
+import fs from "fs";
+import path from "path";
 import pool from "../src/config/db.js";
 
-const reparticiones = [
-  { codigoreparticion: "1", reparticion: "SECRETARIA DE NIÑEZ, ADOLESCENCIA Y FAMILIA" },
-  { codigoreparticion: "2", reparticion: "DIR. PROV. DE PROT. INT. DE NIÑEZ, ADOL Y FLI" },
-  { codigoreparticion: "3", reparticion: "DIRECCION DE ADULTOS MAYORES" },
-  { codigoreparticion: "4", reparticion: "D.G.A. (MINISTERIO DE DESARROLLO)" },
-  { codigoreparticion: "5", reparticion: "MINISTERIO DE DESARROLLO" },
-  { codigoreparticion: "6", reparticion: "DIRECCION DE PERSONAL DE LA PROVINCIA" },
-  { codigoreparticion: "7", reparticion: "DIRECCION DE TRAMITES Y ARCHIVO (C. GOBIERNO)" },
-  { codigoreparticion: "8", reparticion: "CONTADURIA DE LA PROVINCIA" },
-  { codigoreparticion: "9", reparticion: "DIRECCION PROVINCIAL DE PRESUPUESTOS" },
-  { codigoreparticion: "10", reparticion: "DIRECCION PROVINCIAL DE LA JUVENTUD" },
-  { codigoreparticion: "11", reparticion: "COORDINACION DEL PLAN INTEGRAL" },
-  { codigoreparticion: "12", reparticion: "DIRECCION PROV. DE DISP. DE CUIDADOS" },
-  { codigoreparticion: "13", reparticion: "COORDINACION OPD" },
-  { codigoreparticion: "14", reparticion: "COORDINACION DE LOS DISP. DE CUIDADOS" },
-  { codigoreparticion: "15", reparticion: "COORDINACION GESTION ADMINISTRATIVA" },
-];
+function leerDbf(rutaDbf) {
+  const buffer = fs.readFileSync(rutaDbf);
+  const numRecords = buffer.readUInt32LE(4);
+  const headerLen = buffer.readUInt16LE(8);
+  const recordLen = buffer.readUInt16LE(10);
+  const fields = [];
 
-async function seed() {
-  try {
-    const values = reparticiones.flatMap((r) => [
-      r.codigoreparticion,
-      r.reparticion,
-    ]);
-    const valuesWithState = [];
-    for (let i = 0; i < values.length; i += 2) {
-      valuesWithState.push(values[i], values[i + 1], true);
-    }
-    const placeholdersWithState = reparticiones
-      .map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`)
-      .join(", ");
-    const sqlWithState = `
-      INSERT INTO reparticion (codigoreparticion, reparticion, habilitado)
-      VALUES ${placeholdersWithState}
-      ON CONFLICT (codigoreparticion)
-      DO UPDATE SET reparticion = EXCLUDED.reparticion, habilitado = EXCLUDED.habilitado
-    `;
-    await pool.query(sqlWithState, valuesWithState);
-    console.log("Reparticiones cargadas.");
-  } catch (err) {
-    console.error("Error cargando reparticiones:", err);
-    process.exitCode = 1;
-  } finally {
-    await pool.end();
+  for (let offset = 32; offset < headerLen && buffer[offset] !== 0x0d; offset += 32) {
+    fields.push({
+      name: buffer.slice(offset, offset + 11).toString("latin1").replace(/\u0000/g, "").trim(),
+      length: buffer[offset + 16],
+    });
   }
+
+  const rows = [];
+  for (let i = 0, recordOffset = headerLen; i < numRecords; i += 1, recordOffset += recordLen) {
+    const record = buffer.slice(recordOffset, recordOffset + recordLen);
+    if (record.length < recordLen) break;
+    let fieldOffset = 1;
+    const row = { _deleted: record[0] === 0x2a };
+    for (const field of fields) {
+      row[field.name] = record
+        .slice(fieldOffset, fieldOffset + field.length)
+        .toString("latin1")
+        .replace(/\u0000/g, "")
+        .trim();
+      fieldOffset += field.length;
+    }
+    rows.push(row);
+  }
+  return rows;
 }
 
-seed();
+async function seed() {
+  const rutaDbf = path.join(process.cwd(), "db_vieja", "reparticion.dbf");
+  const map = new Map();
+  for (const row of leerDbf(rutaDbf)) {
+    const codigo = row.CODIGOREPA?.trim();
+    const nombre = row.REPARTICIO?.trim();
+    if (!codigo || !nombre) continue;
+    map.set(codigo, { codigo, nombre, habilitado: !row._deleted });
+  }
+
+  const reparticiones = [...map.values()];
+  if (!reparticiones.length) throw new Error("No hay reparticiones validas para cargar.");
+  const placeholders = reparticiones
+    .map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`)
+    .join(", ");
+  const values = reparticiones.flatMap((r) => [r.codigo, r.nombre, r.habilitado]);
+
+  await pool.query(
+    `INSERT INTO reparticion (codigoreparticion, reparticion, habilitado)
+     VALUES ${placeholders}
+     ON CONFLICT (codigoreparticion) DO UPDATE SET
+       reparticion = EXCLUDED.reparticion,
+       habilitado = EXCLUDED.habilitado`,
+    values
+  );
+  console.log(`Reparticiones cargadas: ${reparticiones.length}.`);
+}
+
+seed()
+  .catch((err) => {
+    console.error("Error cargando reparticiones:", err);
+    process.exitCode = 1;
+  })
+  .finally(() => pool.end());

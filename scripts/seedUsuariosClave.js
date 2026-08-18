@@ -136,7 +136,7 @@ async function seed() {
       nombreusuario = EXCLUDED.nombreusuario,
       nombre = EXCLUDED.nombre,
       email = COALESCE(EXCLUDED.email, usuarios.email),
-      password_hash = EXCLUDED.password_hash,
+      password_hash = usuarios.password_hash,
       nivel = EXCLUDED.nivel,
       codigo = EXCLUDED.codigo,
       codigosector = EXCLUDED.codigosector,

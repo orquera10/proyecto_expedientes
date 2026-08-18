@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { normalizeArgentinePhone } from "../utils/phone.js";
 
 export async function obtenerUsuarios() {
   const result = await pool.query(
@@ -6,6 +7,7 @@ export async function obtenerUsuarios() {
             usuario,
             COALESCE(nombreusuario, nombre) AS nombre,
             email,
+            telefono,
             nivel,
             codigo,
             codigosector,
@@ -25,17 +27,19 @@ export async function guardarUsuario(data) {
        nombreusuario,
        nombre,
        email,
+       telefono,
        password_hash,
        nivel,
        codigo,
        codigosector,
        habilitado
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id,
                usuario,
                COALESCE(nombreusuario, nombre) AS nombre,
                email,
+               telefono,
                nivel,
                codigo,
                codigosector,
@@ -46,6 +50,7 @@ export async function guardarUsuario(data) {
       data.nombre,
       data.nombre,
       data.email,
+      data.telefono ? normalizeArgentinePhone(data.telefono) : null,
       data.password_hash ?? null,
       data.nivel ?? null,
       data.codigo ?? null,
@@ -62,6 +67,7 @@ export async function obtenerUsuarioPorId(id) {
             usuario,
             COALESCE(nombreusuario, nombre) AS nombre,
             email,
+            telefono,
             nivel,
             codigo,
             codigosector,
@@ -80,6 +86,7 @@ export async function obtenerUsuarioPorIdConPassword(id) {
             usuario,
             COALESCE(nombreusuario, nombre) AS nombre,
             email,
+            telefono,
             password_hash,
             nivel,
             codigo,
@@ -110,6 +117,7 @@ export async function obtenerUsuarioPorEmail(email) {
             usuario,
             COALESCE(nombreusuario, nombre) AS nombre,
             email,
+            telefono,
             password_hash,
             nivel,
             codigo,
@@ -129,6 +137,7 @@ export async function obtenerUsuarioPorUsuario(usuario) {
             usuario,
             COALESCE(nombreusuario, nombre) AS nombre,
             email,
+            telefono,
             password_hash,
             nivel,
             codigo,
@@ -150,15 +159,17 @@ export async function actualizarUsuario(id, data) {
          nombreusuario = $2,
          nombre = $3,
          email = $4,
-         nivel = $5,
-         codigo = $6,
-         codigosector = $7,
-         habilitado = $8
-     WHERE id = $9
+         telefono = $5,
+         nivel = $6,
+         codigo = $7,
+         codigosector = $8,
+         habilitado = $9
+     WHERE id = $10
      RETURNING id,
                usuario,
                COALESCE(nombreusuario, nombre) AS nombre,
                email,
+               telefono,
                nivel,
                codigo,
                codigosector,
@@ -169,6 +180,7 @@ export async function actualizarUsuario(id, data) {
       data.nombre,
       data.nombre,
       data.email,
+      data.telefono ? normalizeArgentinePhone(data.telefono) : null,
       data.nivel ?? null,
       data.codigo ?? null,
       data.codigosector ?? null,

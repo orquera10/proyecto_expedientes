@@ -157,3 +157,22 @@ Si el asistente no entiende:
 - Use filtros para evitar listados muy grandes.
 - Si un expediente no aparece donde espera, revise el ultimo movimiento.
 - Mantenga consistencia en mayusculas para asuntos y beneficiarios.
+## API de consulta para el bot de WhatsApp
+
+Configura `EXPEDIENTES_BOT_API_KEY` en el backend y realiza las consultas con:
+
+```http
+GET /api/bot/expedientes/:codigo/:numero/:anio?limite=5
+X-API-Key: <EXPEDIENTES_BOT_API_KEY>
+```
+
+El endpoint es de solo lectura, devuelve el expediente habilitado y hasta diez de sus movimientos habilitados. La API responde `401` si la clave es incorrecta, `404` si el expediente no existe y `503` si la variable no fue configurada.
+
+Antes de permitir una consulta, el bot verifica el telefono con:
+
+```http
+GET /api/bot/usuarios/telefono/:telefono
+X-API-Key: <EXPEDIENTES_BOT_API_KEY>
+```
+
+Solo autoriza telefonos asociados a usuarios habilitados. Los numeros se guardan normalizados en formato argentino internacional (`549...`) y no pueden repetirse entre usuarios.
