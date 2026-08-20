@@ -18,10 +18,6 @@ function Dashboard() {
     }
   })();
   const todayISO = () => new Date().toISOString().slice(0, 10);
-  const formatDateOnly = (value) => {
-    const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return match ? `${match[3]}/${match[2]}/${match[1]}` : "N/D";
-  };
   const [codigo, setCodigo] = useState("");
   const [numero, setNumero] = useState("");
   const [anio, setAnio] = useState("");
@@ -116,7 +112,6 @@ function Dashboard() {
     "Registrar Expediente",
     "Entrada de Expedientes",
     "Salida de Expedientes",
-    "Remitos",
     "Listado de Expedientes",
     "Modificacion de Expedientes",
     "Consulta de Expedientes",
@@ -176,20 +171,6 @@ function Dashboard() {
   const [salidaGuardarError, setSalidaGuardarError] = useState("");
   const [salidaGuardarMensaje, setSalidaGuardarMensaje] = useState("");
   const [salidaRemitoId, setSalidaRemitoId] = useState(null);
-  const [remitoResultados, setRemitoResultados] = useState([]);
-  const [remitoEstado, setRemitoEstado] = useState("idle");
-  const [remitoError, setRemitoError] = useState("");
-  const [remitoPage, setRemitoPage] = useState(1);
-  const [remitoTotal, setRemitoTotal] = useState(0);
-  const [remitoLimit] = useState(10);
-  const [remitoFiltros, setRemitoFiltros] = useState({
-    codigo: "",
-    numero: "",
-    anio: "",
-    asunto: "",
-    fecha_inicio: "",
-    fecha_fin: "",
-  });
   const [remitoPreview, setRemitoPreview] = useState(null);
   const [remitoPreviewReady, setRemitoPreviewReady] = useState(false);
   const remitoIframeRef = useRef(null);
@@ -382,12 +363,6 @@ function Dashboard() {
     const timeout = setTimeout(() => setSalidaError(""), 5000);
     return () => clearTimeout(timeout);
   }, [salidaError]);
-
-  useEffect(() => {
-    if (!remitoError) return;
-    const timeout = setTimeout(() => setRemitoError(""), 5000);
-    return () => clearTimeout(timeout);
-  }, [remitoError]);
 
   useEffect(() => {
     const url = remitoPreview?.url;
@@ -714,61 +689,6 @@ function Dashboard() {
     event.preventDefault();
     setSalidaPage(1);
     fetchSalidas(1);
-  }
-
-  async function fetchRemitos(page, filtros = remitoFiltros) {
-    setRemitoEstado("loading");
-    setRemitoError("");
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setRemitoEstado("error");
-      setRemitoError("No hay sesion activa.");
-      return;
-    }
-
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(remitoLimit),
-      });
-      for (const [clave, valor] of Object.entries(filtros)) {
-        if (valor) params.set(clave, valor);
-      }
-
-      const response = await fetch(
-        `${API_BASE}/api/movimientos/remitos?${params.toString()}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const payload = await response.json();
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("usuario");
-        navigate("/login", { replace: true });
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(payload?.error || "No se pudieron cargar los remitos");
-      }
-
-      setRemitoResultados(payload.data || []);
-      setRemitoTotal(payload.total || 0);
-      setRemitoEstado("success");
-    } catch (err) {
-      setRemitoEstado("error");
-      setRemitoError(err.message);
-    }
-  }
-
-  function handleBuscarRemitos(event) {
-    event.preventDefault();
-    setRemitoPage(1);
-    fetchRemitos(1);
   }
 
   async function abrirModalSalida(item) {
@@ -2229,10 +2149,6 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                   if (label === "Salida de Expedientes") {
                     setSalidaPage(1);
                   }
-                  if (label === "Remitos") {
-                    setRemitoPage(1);
-                    fetchRemitos(1);
-                  }
                 }}
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition ${
                   seccionActiva === label
@@ -2373,23 +2289,6 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         <path d="M16 16v-3" />
                       </svg>
                     )}
-                    {label === "Remitos" && (
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M6 3h9l3 3v15H6z" />
-                        <path d="M14 3v4h4" />
-                        <path d="M9 12h6" />
-                        <path d="M9 16h6" />
-                      </svg>
-                    )}
                     {label === "Administracion" && (
                       <svg
                         aria-hidden="true"
@@ -2421,7 +2320,6 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             "Registrar Expediente",
             "Entrada de Expedientes",
             "Salida de Expedientes",
-            "Remitos",
             "Reportes",
             "Administracion",
           ].includes(seccionActiva) && (
@@ -5038,196 +4936,6 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         salidaPage >= Math.ceil(salidaTotal / salidaLimit || 1)
                       }
                       className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 transition hover:border-moss/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {seccionActiva === "Remitos" && (
-            <div className="space-y-6">
-              <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="font-display text-2xl font-semibold text-ink">
-                      Remitos de expedientes
-                    </h2>
-                    <p className="mt-1 text-sm text-ink/60">
-                      Consulta las salidas vinculadas con tu sector y vuelve a
-                      imprimir o guardar sus remitos.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-ink/10 bg-stone px-4 py-2 text-xs font-semibold text-ink/60">
-                    Pagina {remitoPage}
-                  </div>
-                </div>
-
-                <form
-                  onSubmit={handleBuscarRemitos}
-                  className="mt-6 grid gap-4 md:grid-cols-3"
-                >
-                  {[
-                    ["codigo", "Codigo", "text"],
-                    ["numero", "Numero", "number"],
-                    ["anio", "Anio", "number"],
-                    ["asunto", "Asunto", "text"],
-                    ["fecha_inicio", "Fecha desde", "date"],
-                    ["fecha_fin", "Fecha hasta", "date"],
-                  ].map(([campo, etiqueta, tipo]) => (
-                    <label
-                      key={campo}
-                      className="space-y-2 text-sm font-medium text-ink/70"
-                    >
-                      {etiqueta}
-                      <input
-                        type={tipo}
-                        className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
-                        value={remitoFiltros[campo]}
-                        onChange={(event) =>
-                          setRemitoFiltros((prev) => ({
-                            ...prev,
-                            [campo]: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  ))}
-                  <div className="flex gap-3 md:col-span-3">
-                    <button
-                      type="submit"
-                      className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-2xl bg-ink px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-stone shadow-haze transition hover:bg-moss"
-                    >
-                      Buscar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const filtrosVacios = {
-                          codigo: "",
-                          numero: "",
-                          anio: "",
-                          asunto: "",
-                          fecha_inicio: "",
-                          fecha_fin: "",
-                        };
-                        setRemitoFiltros(filtrosVacios);
-                        setRemitoPage(1);
-                        fetchRemitos(1, filtrosVacios);
-                      }}
-                      className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </form>
-
-                {remitoError && (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {remitoError}
-                  </div>
-                )}
-
-                <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10">
-                  <div className="max-h-[480px] overflow-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="sticky top-0 bg-white text-ink/60">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Accion</th>
-                          <th className="px-4 py-3 font-semibold">Fecha</th>
-                          <th className="px-4 py-3 font-semibold">Expediente</th>
-                          <th className="px-4 py-3 font-semibold">Asunto</th>
-                          <th className="px-4 py-3 font-semibold">Origen</th>
-                          <th className="px-4 py-3 font-semibold">Destino</th>
-                          <th className="px-4 py-3 font-semibold">Usuario</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-ink/10">
-                        {remitoEstado === "loading" && (
-                          <tr>
-                            <td className="px-4 py-4 text-ink/60" colSpan={7}>
-                              Cargando remitos...
-                            </td>
-                          </tr>
-                        )}
-                        {remitoEstado !== "loading" &&
-                          remitoResultados.length === 0 && (
-                            <tr>
-                              <td className="px-4 py-4 text-ink/60" colSpan={7}>
-                                No hay remitos para mostrar.
-                              </td>
-                            </tr>
-                          )}
-                        {remitoResultados.map((item) => (
-                          <tr key={item.id}>
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    setRemitoError("");
-                                    await abrirVistaPreviaRemito(item.id, item);
-                                  } catch (err) {
-                                    setRemitoError(err.message);
-                                  }
-                                }}
-                                className="cursor-pointer rounded-full border border-moss/30 bg-moss/10 px-3 py-2 text-xs font-semibold text-moss transition hover:bg-moss hover:text-white"
-                              >
-                                Vista previa
-                              </button>
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-ink/60">
-                              {formatDateOnly(item.fechamov)}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
-                              {item.codigo}-{item.numero}/{item.anio}
-                            </td>
-                            <td className="min-w-64 px-4 py-3">
-                              {item.asunto || "Sin asunto"}
-                            </td>
-                            <td className="px-4 py-3">{item.origen || "N/D"}</td>
-                            <td className="px-4 py-3">{item.destino || "N/D"}</td>
-                            <td className="px-4 py-3">{item.usuario || "N/D"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink/60">
-                  <span>Total: {remitoTotal} remitos</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const pagina = Math.max(remitoPage - 1, 1);
-                        setRemitoPage(pagina);
-                        fetchRemitos(pagina);
-                      }}
-                      disabled={remitoPage === 1 || remitoEstado === "loading"}
-                      className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 transition hover:border-moss/40 disabled:opacity-50"
-                    >
-                      Anterior
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const paginas = Math.max(
-                          Math.ceil(remitoTotal / remitoLimit),
-                          1
-                        );
-                        const pagina = Math.min(remitoPage + 1, paginas);
-                        setRemitoPage(pagina);
-                        fetchRemitos(pagina);
-                      }}
-                      disabled={
-                        remitoEstado === "loading" ||
-                        remitoPage >= Math.ceil(remitoTotal / remitoLimit || 1)
-                      }
-                      className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 transition hover:border-moss/40 disabled:opacity-50"
                     >
                       Siguiente
                     </button>

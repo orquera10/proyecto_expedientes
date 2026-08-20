@@ -4,7 +4,6 @@ import {
   crearMovimiento,
   listarMovimientosPorExpediente,
   descargarRemito,
-  listarRemitos,
   listarSalidasParaEntrada,
   listarEntradasParaSalida,
   registrarEntrada,
@@ -23,7 +22,6 @@ router.get("/salidas/entrada", listarSalidasParaEntrada);
 router.get("/entradas/salida", listarEntradasParaSalida);
 router.post("/entrada", registrarEntrada);
 router.post("/salida", registrarSalida);
-router.get("/remitos", listarRemitos);
 router.get("/:id/remito", descargarRemito);
 router.put("/:id/deshabilitar", deshabilitarMovimiento);
 router.put("/:id/habilitar", habilitarMovimiento);

@@ -3,7 +3,6 @@ import {
   guardarMovimiento,
   obtenerMovimientosPorExpediente,
   obtenerDatosRemitoPorMovimiento,
-  obtenerRemitos,
   obtenerUltimasSalidas,
   obtenerUltimasEntradas,
   deshabilitarMovimientoPorId,
@@ -97,57 +96,6 @@ export async function descargarRemito(req, res, next) {
     documento.on("error", next);
     documento.pipe(res);
     documento.end();
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function listarRemitos(req, res, next) {
-  const page = Math.max(Number(req.query.page) || 1, 1);
-  const limitRaw = Number(req.query.limit) || 20;
-  const limit = Math.min(Math.max(limitRaw, 1), 100);
-  const offset = (page - 1) * limit;
-  const {
-    codigo,
-    numero,
-    anio,
-    asunto,
-    fecha_inicio: fechaInicio,
-    fecha_fin: fechaFin,
-  } = req.query || {};
-  const codigosector = req.user?.codigosector
-    ? String(req.user.codigosector)
-    : null;
-  const incluirTodos =
-    req.user?.nivel === "S" || codigosector === "1";
-
-  if (!incluirTodos && !codigosector) {
-    return res.status(400).json({
-      error: "No se pudo determinar el sector del usuario",
-    });
-  }
-
-  try {
-    const result = await obtenerRemitos({
-      codigosector,
-      incluirTodos,
-      limit,
-      offset,
-      filtrosBusqueda: {
-        codigo,
-        numero,
-        anio,
-        asunto,
-        fechaInicio,
-        fechaFin,
-      },
-    });
-    res.json({
-      page,
-      limit,
-      total: result.total,
-      data: result.rows,
-    });
   } catch (err) {
     next(err);
   }
