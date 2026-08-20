@@ -116,6 +116,127 @@ export async function obtenerMovimientosPorExpediente(codigo, numero, anio) {
   return result.rows;
 }
 
+export async function obtenerDatosRemitoPorMovimiento(id) {
+  const result = await pool.query(
+    `SELECT m.id,
+            m.codigo,
+            m.numero,
+            m.anio,
+            m.fechamov,
+            m.origen,
+            m.destino,
+            m.motivo,
+            m.estado,
+            m.usuario,
+            m.codigoren,
+            m.coddestino,
+            m.habilitado,
+            e.tipo,
+            e.partida,
+            e.fechainicio,
+            e.asunto,
+            e.iniciador,
+            e.beneficiario,
+            e.fojas,
+            e.caja,
+            e.cajainterna
+     FROM movimiento m
+     JOIN expedientes e
+       ON e.codigo = m.codigo
+      AND e.numero = m.numero
+      AND e.anio = m.anio
+     WHERE m.id = $1`,
+    [id]
+  );
+  return result.rows[0];
+}
+
+export async function obtenerRemitos({
+  codigosector,
+  incluirTodos,
+  limit,
+  offset,
+  filtrosBusqueda = {},
+}) {
+  const filtros = ["m.estado = 'S'", "m.habilitado IS NOT FALSE"];
+  const values = [];
+
+  if (!incluirTodos) {
+    values.push(codigosector);
+    filtros.push(
+      `(m.codigoren::text = $${values.length}::text OR m.coddestino::text = $${values.length}::text)`
+    );
+  }
+  if (filtrosBusqueda.codigo) {
+    values.push(String(filtrosBusqueda.codigo));
+    filtros.push(`TRIM(m.codigo::text) = $${values.length}::text`);
+  }
+  if (filtrosBusqueda.numero) {
+    values.push(Number(filtrosBusqueda.numero));
+    filtros.push(`m.numero = $${values.length}`);
+  }
+  if (filtrosBusqueda.anio) {
+    values.push(Number(filtrosBusqueda.anio));
+    filtros.push(`m.anio = $${values.length}`);
+  }
+  if (filtrosBusqueda.asunto) {
+    values.push(`%${filtrosBusqueda.asunto}%`);
+    filtros.push(`e.asunto ILIKE $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaInicio) {
+    values.push(filtrosBusqueda.fechaInicio);
+    filtros.push(`m.fechamov >= $${values.length}`);
+  }
+  if (filtrosBusqueda.fechaFin) {
+    values.push(filtrosBusqueda.fechaFin);
+    filtros.push(`m.fechamov <= $${values.length}`);
+  }
+
+  const where = `WHERE ${filtros.join(" AND ")}`;
+  const filterValues = [...values];
+  values.push(limit);
+  const limitIndex = values.length;
+  values.push(offset);
+  const offsetIndex = values.length;
+
+  const selectBase = `
+    FROM movimiento m
+    JOIN expedientes e
+      ON TRIM(e.codigo::text) = TRIM(m.codigo::text)
+     AND e.numero::text = m.numero::text
+     AND e.anio::text = m.anio::text
+    ${where}`;
+
+  const [dataResult, countResult] = await Promise.all([
+    pool.query(
+      `SELECT m.id,
+              TRIM(m.codigo::text) AS codigo,
+              m.numero,
+              m.anio,
+              m.fechamov,
+              m.origen,
+              m.destino,
+              m.motivo,
+              m.usuario,
+              e.codinum,
+              e.asunto,
+              e.tipo,
+              e.beneficiario,
+              e.fojas
+       ${selectBase}
+       ORDER BY m.fechamov DESC NULLS LAST, m.id DESC
+       LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      values
+    ),
+    pool.query(`SELECT COUNT(*)::int AS total ${selectBase}`, filterValues),
+  ]);
+
+  return {
+    rows: dataResult.rows,
+    total: countResult.rows[0]?.total ?? 0,
+  };
+}
+
 export async function deshabilitarMovimientoPorId(id) {
   const result = await pool.query(
     `UPDATE movimiento

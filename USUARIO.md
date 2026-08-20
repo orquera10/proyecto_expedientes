@@ -82,6 +82,10 @@ Al registrar salida:
 - El origen es su sector y el destino se selecciona.
 - Se registra el movimiento con estado "S".
 - Puede actualizar fojas y cajas si corresponde.
+- Se abre una vista previa del remito PDF para que pueda imprimirlo o guardarlo
+  en la computadora. El sistema no lo descarga automaticamente.
+- La seccion "Remitos" permite buscar cualquier salida vinculada con su sector y
+  volver a abrir, imprimir o guardar el remito.
 
 ## Consulta de Expedientes
 

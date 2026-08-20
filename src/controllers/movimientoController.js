@@ -2,12 +2,19 @@ import {
   obtenerMovimientos,
   guardarMovimiento,
   obtenerMovimientosPorExpediente,
+  obtenerDatosRemitoPorMovimiento,
+  obtenerRemitos,
   obtenerUltimasSalidas,
   obtenerUltimasEntradas,
   deshabilitarMovimientoPorId,
   habilitarMovimientoPorId,
 } from "../models/movimientoModel.js";
 import pool from "../config/db.js";
+import {
+  crearDocumentoRemito,
+  nombreArchivoRemito,
+  usuarioPuedeVerRemito,
+} from "../services/remitoPdfService.js";
 
 export async function listarMovimientos(_req, res, next) {
   try {
@@ -53,6 +60,94 @@ export async function listarMovimientosPorExpediente(req, res, next) {
       anioInt
     );
     res.json(movimientos);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function descargarRemito(req, res, next) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Id de movimiento invalido" });
+  }
+
+  try {
+    const datos = await obtenerDatosRemitoPorMovimiento(id);
+    if (!datos || datos.habilitado === false) {
+      return res.status(404).json({ error: "Movimiento no encontrado" });
+    }
+    if (datos.estado !== "S") {
+      return res
+        .status(400)
+        .json({ error: "El remito solo esta disponible para movimientos de salida" });
+    }
+    if (!usuarioPuedeVerRemito(req.user, datos)) {
+      return res.status(403).json({ error: "No autorizado para ver este remito" });
+    }
+
+    const nombreArchivo = nombreArchivoRemito(datos);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${nombreArchivo}"`
+    );
+    res.setHeader("Cache-Control", "private, no-store");
+
+    const documento = crearDocumentoRemito(datos);
+    documento.on("error", next);
+    documento.pipe(res);
+    documento.end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listarRemitos(req, res, next) {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limitRaw = Number(req.query.limit) || 20;
+  const limit = Math.min(Math.max(limitRaw, 1), 100);
+  const offset = (page - 1) * limit;
+  const {
+    codigo,
+    numero,
+    anio,
+    asunto,
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+  } = req.query || {};
+  const codigosector = req.user?.codigosector
+    ? String(req.user.codigosector)
+    : null;
+  const incluirTodos =
+    req.user?.nivel === "S" || codigosector === "1";
+
+  if (!incluirTodos && !codigosector) {
+    return res.status(400).json({
+      error: "No se pudo determinar el sector del usuario",
+    });
+  }
+
+  try {
+    const result = await obtenerRemitos({
+      codigosector,
+      incluirTodos,
+      limit,
+      offset,
+      filtrosBusqueda: {
+        codigo,
+        numero,
+        anio,
+        asunto,
+        fechaInicio,
+        fechaFin,
+      },
+    });
+    res.json({
+      page,
+      limit,
+      total: result.total,
+      data: result.rows,
+    });
   } catch (err) {
     next(err);
   }
