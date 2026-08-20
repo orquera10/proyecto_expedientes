@@ -14,6 +14,17 @@ import {
   nombreArchivoRemito,
   usuarioPuedeVerRemito,
 } from "../services/remitoPdfService.js";
+import {
+  MovimientoMultipleError,
+  registrarEntradaMultiple as registrarEntradaMultipleService,
+  registrarSalidaMultiple as registrarSalidaMultipleService,
+} from "../services/movimientoMultipleService.js";
+import { obtenerDatosRemitoLote } from "../models/remitoLoteModel.js";
+import {
+  crearDocumentoRemitoLote,
+  nombreArchivoRemitoLote,
+  usuarioPuedeVerRemitoLote,
+} from "../services/remitoLotePdfService.js";
 
 export async function listarMovimientos(_req, res, next) {
   try {
@@ -98,6 +109,63 @@ export async function descargarRemito(req, res, next) {
     documento.end();
   } catch (err) {
     next(err);
+  }
+}
+
+function responderErrorMultiple(error, res, next) {
+  if (error instanceof MovimientoMultipleError) {
+    return res.status(error.status).json({ error: error.message });
+  }
+  return next(error);
+}
+
+export async function registrarEntradaMultiple(req, res, next) {
+  try {
+    const result = await registrarEntradaMultipleService(req.body || {}, req.user);
+    return res.status(201).json(result);
+  } catch (error) {
+    return responderErrorMultiple(error, res, next);
+  }
+}
+
+export async function registrarSalidaMultiple(req, res, next) {
+  try {
+    const result = await registrarSalidaMultipleService(req.body || {}, req.user);
+    return res.status(201).json(result);
+  } catch (error) {
+    return responderErrorMultiple(error, res, next);
+  }
+}
+
+export async function descargarRemitoLote(req, res, next) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Id de remito invalido" });
+  }
+  try {
+    const remito = await obtenerDatosRemitoLote(id);
+    if (!remito || remito.habilitado === false) {
+      return res.status(404).json({ error: "Remito multiple no encontrado" });
+    }
+    if (!usuarioPuedeVerRemitoLote(req.user, remito)) {
+      return res.status(403).json({ error: "No autorizado para ver este remito" });
+    }
+    if (!remito.expedientes.length) {
+      return res.status(409).json({ error: "El remito no tiene movimientos habilitados" });
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${nombreArchivoRemitoLote(remito)}"`
+    );
+    res.setHeader("Cache-Control", "private, no-store");
+    const documento = crearDocumentoRemitoLote(remito);
+    documento.on("error", next);
+    documento.pipe(res);
+    documento.end();
+  } catch (error) {
+    next(error);
   }
 }
 

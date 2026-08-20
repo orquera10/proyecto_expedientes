@@ -64,10 +64,39 @@ async function ensureMovimientoFechaHoraColumn() {
   }
 }
 
+async function ensureRemitosLoteTables() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS remito_lote (
+        id BIGSERIAL PRIMARY KEY,
+        fechamov DATE NOT NULL,
+        fechahora TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        codigoren TEXT NOT NULL,
+        coddestino TEXT NOT NULL,
+        origen TEXT,
+        destino TEXT,
+        usuario_id BIGINT,
+        usuario TEXT,
+        habilitado BOOLEAN NOT NULL DEFAULT TRUE
+      );
+      CREATE TABLE IF NOT EXISTS remito_lote_movimiento (
+        remito_lote_id BIGINT NOT NULL REFERENCES remito_lote(id) ON DELETE CASCADE,
+        movimiento_id BIGINT NOT NULL REFERENCES movimiento(id),
+        PRIMARY KEY (remito_lote_id, movimiento_id)
+      );
+      CREATE INDEX IF NOT EXISTS remito_lote_movimiento_movimiento_idx
+        ON remito_lote_movimiento (movimiento_id);
+    `);
+  } catch (err) {
+    console.error("Error asegurando tablas de remitos multiples:", err);
+  }
+}
+
 await Promise.all([
   ensureExpedientesTipoColumn(),
   ensureExpedientesCodinumSequence(),
   ensureMovimientoFechaHoraColumn(),
+  ensureRemitosLoteTables(),
 ]);
 
 // Rutas de la API

@@ -8,6 +8,9 @@ import {
   listarEntradasParaSalida,
   registrarEntrada,
   registrarSalida,
+  registrarEntradaMultiple,
+  registrarSalidaMultiple,
+  descargarRemitoLote,
   deshabilitarMovimiento,
   habilitarMovimiento,
 } from "../controllers/movimientoController.js";
@@ -22,6 +25,9 @@ router.get("/salidas/entrada", listarSalidasParaEntrada);
 router.get("/entradas/salida", listarEntradasParaSalida);
 router.post("/entrada", registrarEntrada);
 router.post("/salida", registrarSalida);
+router.post("/entrada-multiple", registrarEntradaMultiple);
+router.post("/salida-multiple", registrarSalidaMultiple);
+router.get("/remitos-lote/:id", descargarRemitoLote);
 router.get("/:id/remito", descargarRemito);
 router.put("/:id/deshabilitar", deshabilitarMovimiento);
 router.put("/:id/habilitar", habilitarMovimiento);

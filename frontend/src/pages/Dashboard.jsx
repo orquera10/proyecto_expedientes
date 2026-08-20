@@ -111,7 +111,9 @@ function Dashboard() {
   const menuItems = [
     "Registrar Expediente",
     "Entrada de Expedientes",
+    "Entrada Múltiple",
     "Salida de Expedientes",
+    "Salida Múltiple",
     "Listado de Expedientes",
     "Modificacion de Expedientes",
     "Consulta de Expedientes",
@@ -171,6 +173,27 @@ function Dashboard() {
   const [salidaGuardarError, setSalidaGuardarError] = useState("");
   const [salidaGuardarMensaje, setSalidaGuardarMensaje] = useState("");
   const [salidaRemitoId, setSalidaRemitoId] = useState(null);
+  const [entradaMultipleResultados, setEntradaMultipleResultados] = useState([]);
+  const [entradaMultipleSeleccion, setEntradaMultipleSeleccion] = useState([]);
+  const [entradaMultipleEstado, setEntradaMultipleEstado] = useState("idle");
+  const [entradaMultipleError, setEntradaMultipleError] = useState("");
+  const [entradaMultipleMensaje, setEntradaMultipleMensaje] = useState("");
+  const [entradaMultipleBuscar, setEntradaMultipleBuscar] = useState("");
+  const [entradaMultipleForm, setEntradaMultipleForm] = useState({
+    fechaentrada: "",
+    motivo: "",
+  });
+  const [salidaMultipleResultados, setSalidaMultipleResultados] = useState([]);
+  const [salidaMultipleSeleccion, setSalidaMultipleSeleccion] = useState([]);
+  const [salidaMultipleEstado, setSalidaMultipleEstado] = useState("idle");
+  const [salidaMultipleError, setSalidaMultipleError] = useState("");
+  const [salidaMultipleMensaje, setSalidaMultipleMensaje] = useState("");
+  const [salidaMultipleBuscar, setSalidaMultipleBuscar] = useState("");
+  const [salidaMultipleForm, setSalidaMultipleForm] = useState({
+    fechasalida: "",
+    motivo: "",
+    destino: "",
+  });
   const [remitoPreview, setRemitoPreview] = useState(null);
   const [remitoPreviewReady, setRemitoPreviewReady] = useState(false);
   const remitoIframeRef = useRef(null);
@@ -686,6 +709,166 @@ function Dashboard() {
     event.preventDefault();
     setSalidaPage(1);
     fetchSalidas(1);
+  }
+
+  function claveSeleccionMultiple(item) {
+    return `${item.codigo}-${item.numero}-${item.anio}`;
+  }
+
+  async function cargarListadoMultiple(tipo) {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No hay sesion activa.");
+    const endpoint =
+      tipo === "entrada" ? "salidas/entrada" : "entradas/salida";
+    const response = await fetch(
+      `${API_BASE}/api/movimientos/${endpoint}?page=1&limit=100`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const payload = await response.json();
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("usuario");
+      navigate("/login", { replace: true });
+      throw new Error("La sesion vencio.");
+    }
+    if (!response.ok) {
+      throw new Error(payload?.error || "No se pudieron cargar los expedientes");
+    }
+    return payload.data || [];
+  }
+
+  async function cargarEntradaMultiple() {
+    setEntradaMultipleEstado("loading");
+    setEntradaMultipleError("");
+    try {
+      const resultados = await cargarListadoMultiple("entrada");
+      setEntradaMultipleResultados(resultados);
+      setEntradaMultipleSeleccion([]);
+      setEntradaMultipleEstado("success");
+      setEntradaMultipleForm((prev) => ({
+        ...prev,
+        fechaentrada: prev.fechaentrada || todayISO(),
+      }));
+    } catch (err) {
+      setEntradaMultipleEstado("error");
+      setEntradaMultipleError(err.message);
+    }
+  }
+
+  async function cargarSalidaMultiple() {
+    setSalidaMultipleEstado("loading");
+    setSalidaMultipleError("");
+    try {
+      const resultados = await cargarListadoMultiple("salida");
+      setSalidaMultipleResultados(resultados);
+      setSalidaMultipleSeleccion([]);
+      setSalidaMultipleEstado("success");
+      setSalidaMultipleForm((prev) => ({
+        ...prev,
+        fechasalida: prev.fechasalida || todayISO(),
+      }));
+    } catch (err) {
+      setSalidaMultipleEstado("error");
+      setSalidaMultipleError(err.message);
+    }
+  }
+
+  function alternarSeleccionMultiple(tipo, item) {
+    const clave = claveSeleccionMultiple(item);
+    const setter =
+      tipo === "entrada" ? setEntradaMultipleSeleccion : setSalidaMultipleSeleccion;
+    setter((prev) =>
+      prev.includes(clave)
+        ? prev.filter((seleccionada) => seleccionada !== clave)
+        : [...prev, clave]
+    );
+  }
+
+  async function registrarMovimientoMultiple(tipo) {
+    const esEntrada = tipo === "entrada";
+    const seleccion = esEntrada
+      ? entradaMultipleSeleccion
+      : salidaMultipleSeleccion;
+    const resultados = esEntrada
+      ? entradaMultipleResultados
+      : salidaMultipleResultados;
+    const form = esEntrada ? entradaMultipleForm : salidaMultipleForm;
+    const setEstado = esEntrada
+      ? setEntradaMultipleEstado
+      : setSalidaMultipleEstado;
+    const setError = esEntrada
+      ? setEntradaMultipleError
+      : setSalidaMultipleError;
+    const setMensaje = esEntrada
+      ? setEntradaMultipleMensaje
+      : setSalidaMultipleMensaje;
+    if (seleccion.length < 2) {
+      setError("Selecciona al menos dos expedientes.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Se registrara la ${esEntrada ? "entrada" : "salida"} de ${seleccion.length} expedientes. ¿Continuar?`
+      )
+    ) {
+      return;
+    }
+
+    setEstado("loading");
+    setError("");
+    setMensaje("");
+    const expedientes = resultados
+      .filter((item) => seleccion.includes(claveSeleccionMultiple(item)))
+      .map(({ codigo, numero, anio }) => ({ codigo, numero, anio }));
+    const token = localStorage.getItem("token");
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/movimientos/${esEntrada ? "entrada-multiple" : "salida-multiple"}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            expedientes,
+            [esEntrada ? "fechaentrada" : "fechasalida"]:
+              esEntrada ? form.fechaentrada : form.fechasalida,
+            motivo: form.motivo || null,
+            destino: esEntrada ? undefined : form.destino,
+          }),
+        }
+      );
+      const payload = await response.json();
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("usuario");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo registrar el movimiento multiple");
+      }
+
+      setMensaje(
+        `${payload.cantidad} expedientes procesados correctamente.`
+      );
+      if (esEntrada) {
+        setEntradaMultipleSeleccion([]);
+        await cargarEntradaMultiple();
+      } else {
+        setSalidaMultipleSeleccion([]);
+        await cargarSalidaMultiple();
+        if (payload.remito?.id) {
+          await abrirVistaPreviaRemitoLote(payload.remito.id);
+        }
+      }
+      setEstado("success");
+    } catch (err) {
+      setEstado("error");
+      setError(err.message);
+    }
   }
 
   async function abrirModalSalida(item) {
@@ -1348,6 +1531,34 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
       movimientoId,
       nombreArchivo: `remito-${partes.join("-") || movimientoId}.pdf`,
       expediente: partes.join("-") || String(movimientoId),
+    });
+  }
+
+  async function abrirVistaPreviaRemitoLote(remitoId) {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No hay sesion activa.");
+    const response = await fetch(
+      `${API_BASE}/api/movimientos/remitos-lote/${remitoId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("usuario");
+      navigate("/login", { replace: true });
+      throw new Error("La sesion vencio.");
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.error || "No se pudo generar el remito multiple");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    setRemitoPreviewReady(false);
+    setRemitoPreview({
+      url,
+      movimientoId: null,
+      nombreArchivo: `remito-multiple-${remitoId}.pdf`,
+      expediente: `Lote N.º ${remitoId}`,
     });
   }
 
@@ -2141,6 +2352,252 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
     ])
   );
 
+  function renderSeccionMovimientoMultiple(tipo) {
+    const esEntrada = tipo === "entrada";
+    const resultados = esEntrada
+      ? entradaMultipleResultados
+      : salidaMultipleResultados;
+    const seleccion = esEntrada
+      ? entradaMultipleSeleccion
+      : salidaMultipleSeleccion;
+    const estadoMultiple = esEntrada
+      ? entradaMultipleEstado
+      : salidaMultipleEstado;
+    const errorMultiple = esEntrada
+      ? entradaMultipleError
+      : salidaMultipleError;
+    const mensajeMultiple = esEntrada
+      ? entradaMultipleMensaje
+      : salidaMultipleMensaje;
+    const busqueda = esEntrada ? entradaMultipleBuscar : salidaMultipleBuscar;
+    const setBusqueda = esEntrada
+      ? setEntradaMultipleBuscar
+      : setSalidaMultipleBuscar;
+    const form = esEntrada ? entradaMultipleForm : salidaMultipleForm;
+    const setForm = esEntrada ? setEntradaMultipleForm : setSalidaMultipleForm;
+    const termino = busqueda.trim().toLowerCase();
+    const visibles = resultados.filter((item) => {
+      if (!termino) return true;
+      return [item.codigo, item.numero, item.anio, item.asunto, item.beneficiario]
+        .some((valor) => String(valor || "").toLowerCase().includes(termino));
+    });
+    const todosSeleccionados =
+      visibles.length > 0 &&
+      visibles.every((item) => seleccion.includes(claveSeleccionMultiple(item)));
+
+    function alternarTodos() {
+      const clavesVisibles = visibles.map(claveSeleccionMultiple);
+      const setter = esEntrada
+        ? setEntradaMultipleSeleccion
+        : setSalidaMultipleSeleccion;
+      setter((prev) =>
+        todosSeleccionados
+          ? prev.filter((clave) => !clavesVisibles.includes(clave))
+          : [...new Set([...prev, ...clavesVisibles])]
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className={`rounded-[28px] border p-6 shadow-sm ${
+          esEntrada
+            ? "border-emerald-200 bg-emerald-50/60"
+            : "border-red-200 bg-red-50/60"
+        }`}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-ink">
+                {esEntrada ? "Entrada múltiple" : "Salida múltiple"} de expedientes
+              </h2>
+              <p className="mt-1 text-sm text-ink/60">
+                {esEntrada
+                  ? "Selecciona los expedientes que llegaron juntos a tu sector."
+                  : "Selecciona los expedientes que serán enviados juntos al mismo sector."}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-ink/10 bg-white px-4 py-2 text-xs font-semibold text-ink/60">
+              {seleccion.length} seleccionados · máximo 100
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 md:flex-row">
+            <input
+              value={busqueda}
+              onChange={(event) => setBusqueda(event.target.value)}
+              placeholder="Buscar por expediente, asunto o beneficiario"
+              className="flex-1 rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={alternarTodos}
+              disabled={visibles.length === 0}
+              className="cursor-pointer rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink/70 disabled:opacity-50"
+            >
+              {todosSeleccionados ? "Quitar selección visible" : "Seleccionar todos los visibles"}
+            </button>
+            <button
+              type="button"
+              onClick={esEntrada ? cargarEntradaMultiple : cargarSalidaMultiple}
+              disabled={estadoMultiple === "loading"}
+              className="cursor-pointer rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink/70 disabled:opacity-50"
+            >
+              Actualizar
+            </button>
+          </div>
+
+          {errorMultiple && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMultiple}
+            </div>
+          )}
+          {mensajeMultiple && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {mensajeMultiple}
+            </div>
+          )}
+
+          <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+            <div className="max-h-[430px] overflow-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 bg-white text-ink/60 shadow-sm">
+                  <tr>
+                    <th className="w-12 px-4 py-3"></th>
+                    <th className="px-4 py-3 font-semibold">Expediente</th>
+                    <th className="px-4 py-3 font-semibold">Asunto</th>
+                    <th className="px-4 py-3 font-semibold">
+                      {esEntrada ? "Origen" : "Ubicación actual"}
+                    </th>
+                    <th className="px-4 py-3 font-semibold">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink/10">
+                  {estadoMultiple === "loading" && (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-ink/60">Cargando...</td></tr>
+                  )}
+                  {estadoMultiple !== "loading" && visibles.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-ink/60">No hay expedientes disponibles.</td></tr>
+                  )}
+                  {visibles.map((item) => {
+                    const clave = claveSeleccionMultiple(item);
+                    const seleccionado = seleccion.includes(clave);
+                    return (
+                      <tr
+                        key={clave}
+                        onClick={() => alternarSeleccionMultiple(tipo, item)}
+                        className={`cursor-pointer transition ${seleccionado ? "bg-moss/10" : "hover:bg-ink/5"}`}
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={seleccionado}
+                            onChange={() => alternarSeleccionMultiple(tipo, item)}
+                            onClick={(event) => event.stopPropagation()}
+                            className="h-4 w-4 accent-moss"
+                            aria-label={`Seleccionar ${clave}`}
+                          />
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                          {item.codigo}-{item.numero}/{item.anio}
+                        </td>
+                        <td className="min-w-64 px-4 py-3 text-ink/70">
+                          {item.asunto || "Sin asunto"}
+                        </td>
+                        <td className="px-4 py-3 text-ink/60">
+                          {esEntrada
+                            ? item.origen || "N/D"
+                            : item.destino || item.origen || "N/D"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-ink/60">
+                          {item.fechamov
+                            ? String(item.fechamov).slice(0, 10).split("-").reverse().join("/")
+                            : "N/D"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            registrarMovimientoMultiple(tipo);
+          }}
+          className="rounded-[28px] border border-ink/10 bg-white/90 p-6 shadow-sm"
+        >
+          <h3 className="font-display text-xl font-semibold text-ink">
+            Datos comunes del movimiento
+          </h3>
+          <div className={`mt-4 grid gap-4 ${esEntrada ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+            <label className="space-y-2 text-sm font-medium text-ink/70">
+              Fecha de {esEntrada ? "entrada" : "salida"}
+              <input
+                type="date"
+                value={esEntrada ? form.fechaentrada : form.fechasalida}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    [esEntrada ? "fechaentrada" : "fechasalida"]: event.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                required
+              />
+            </label>
+            {!esEntrada && (
+              <label className="space-y-2 text-sm font-medium text-ink/70">
+                Sector de destino
+                <select
+                  value={form.destino}
+                  onChange={(event) => setForm((prev) => ({ ...prev, destino: event.target.value }))}
+                  className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                  required
+                >
+                  <option value="">Seleccionar</option>
+                  {sectores
+                    .filter((sector) => String(sector.codigosector) !== String(usuarioInfo?.codigosector || ""))
+                    .map((sector) => (
+                      <option key={sector.codigosector} value={sector.codigosector}>
+                        {sector.codigosector} - {sector.sector}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+            <label className="space-y-2 text-sm font-medium text-ink/70">
+              Motivo común
+              <input
+                value={form.motivo}
+                onChange={(event) => setForm((prev) => ({ ...prev, motivo: event.target.value }))}
+                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                placeholder="Opcional"
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            disabled={seleccion.length < 2 || estadoMultiple === "loading"}
+            className={`mt-5 w-full cursor-pointer rounded-2xl px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-haze disabled:cursor-not-allowed disabled:opacity-50 ${
+              esEntrada ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"
+            }`}
+          >
+            {estadoMultiple === "loading"
+              ? "Procesando..."
+              : `Registrar ${esEntrada ? "entrada" : "salida"} de ${seleccion.length} expedientes`}
+          </button>
+          {!esEntrada && (
+            <p className="mt-2 text-center text-xs text-ink/50">
+              Al finalizar se generará un único remito con todos los expedientes seleccionados.
+            </p>
+          )}
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone text-ink">
       <Navbar />
@@ -2217,17 +2674,26 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                   if (label === "Salida de Expedientes") {
                     setSalidaPage(1);
                   }
+                  if (label === "Entrada Múltiple") {
+                    setEntradaMultipleSeleccion([]);
+                    cargarEntradaMultiple();
+                  }
+                  if (label === "Salida Múltiple") {
+                    setSalidaMultipleSeleccion([]);
+                    cargarSalidaMultiple();
+                    cargarSectores();
+                  }
                 }}
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition ${
                   seccionActiva === label
-                    ? label === "Salida de Expedientes"
+                    ? ["Salida de Expedientes", "Salida Múltiple"].includes(label)
                       ? "border-red-400 bg-red-500 text-white"
-                      : label === "Entrada de Expedientes"
+                      : ["Entrada de Expedientes", "Entrada Múltiple"].includes(label)
                         ? "border-emerald-400 bg-emerald-500 text-white"
                         : "border-black bg-black text-white"
-                    : label === "Entrada de Expedientes"
+                    : ["Entrada de Expedientes", "Entrada Múltiple"].includes(label)
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300"
-                      : label === "Salida de Expedientes"
+                      : ["Salida de Expedientes", "Salida Múltiple"].includes(label)
                           ? "border-red-200 bg-red-50 text-red-700 hover:border-red-300"
                           : "border-ink/20 bg-white text-ink hover:border-ink/40 hover:bg-black hover:text-white"
                 } ${
@@ -2259,7 +2725,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         <path d="M5 12h14" />
                       </svg>
                     )}
-                    {label === "Entrada de Expedientes" && (
+                    {["Entrada de Expedientes", "Entrada Múltiple"].includes(label) && (
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
@@ -2275,7 +2741,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         <path d="M4 20h16" />
                       </svg>
                     )}
-                    {label === "Salida de Expedientes" && (
+                    {["Salida de Expedientes", "Salida Múltiple"].includes(label) && (
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
@@ -2387,7 +2853,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             "Modificacion de Expedientes",
             "Registrar Expediente",
             "Entrada de Expedientes",
+            "Entrada Múltiple",
             "Salida de Expedientes",
+            "Salida Múltiple",
             "Reportes",
             "Administracion",
           ].includes(seccionActiva) && (
@@ -4396,6 +4864,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             </div>
           )}
 
+          {seccionActiva === "Entrada Múltiple" &&
+            renderSeccionMovimientoMultiple("entrada")}
+
           {seccionActiva === "Entrada de Expedientes" && (
             <div className="space-y-6">
               <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
@@ -4704,6 +5175,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
               </div>
             </div>
           )}
+
+          {seccionActiva === "Salida Múltiple" &&
+            renderSeccionMovimientoMultiple("salida")}
 
           {seccionActiva === "Salida de Expedientes" && (
             <div className="space-y-6">
@@ -5441,6 +5915,26 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                               aria-label="Descargar remito PDF"
                             >
                               Ver remito
+                            </button>
+                          )}
+                          {mov.estado === "S" && mov.remito_lote_id && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  setError("");
+                                  await abrirVistaPreviaRemitoLote(
+                                    mov.remito_lote_id
+                                  );
+                                } catch (err) {
+                                  setError(err.message);
+                                }
+                              }}
+                              className="cursor-pointer rounded-full border border-moss/30 bg-white px-3 py-1 font-semibold text-moss transition hover:bg-moss/10"
+                              title="Ver remito multiple"
+                              aria-label="Ver remito multiple"
+                            >
+                              Ver remito múltiple
                             </button>
                           )}
                         </span>

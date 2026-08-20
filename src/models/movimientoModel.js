@@ -107,7 +107,11 @@ export async function obtenerMovimientosPorExpediente(codigo, numero, anio) {
             observaciones,
             codigoren,
             coddestino,
-            habilitado
+            habilitado,
+            (SELECT rlm.remito_lote_id
+             FROM remito_lote_movimiento rlm
+             WHERE rlm.movimiento_id = movimiento.id
+             LIMIT 1) AS remito_lote_id
      FROM movimiento
      WHERE codigo = $1 AND numero = $2 AND anio = $3
      ORDER BY movimiento DESC NULLS LAST, id DESC`,

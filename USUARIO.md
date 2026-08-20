@@ -66,6 +66,13 @@ Al registrar entrada:
 - Se registra el movimiento con estado "E".
 - Puede actualizar fojas y cajas si corresponde.
 
+## Entrada Múltiple
+
+Permite seleccionar entre 2 y 100 expedientes dirigidos al sector y registrar
+su entrada en una sola operacion. Todos reciben la misma fecha y motivo. La
+operacion es atomica: si uno de los expedientes no esta disponible, no se
+registra ninguna entrada del lote.
+
 ## Salida de Expedientes
 
 Muestra expedientes cuyo ultimo movimiento es de entrada (E) y estan en su
@@ -87,6 +94,14 @@ Al registrar salida:
 - Los nuevos remitos registran la hora de salida con la zona horaria de Argentina.
 - Puede volver a abrirlo desde "Ver remito" en la tarjeta del movimiento de
   salida dentro de Consulta de Expedientes.
+
+## Salida Múltiple
+
+Permite seleccionar entre 2 y 100 expedientes que se encuentran en el sector,
+elegir un destino comun y registrar todas las salidas juntas. Al finalizar se
+abre un remito multiple que enumera los expedientes y permite imprimir o guardar
+el PDF. En Consulta de Expedientes, cada movimiento del lote muestra la opcion
+"Ver remito multiple" para recuperar el documento.
 
 ## Consulta de Expedientes
 
