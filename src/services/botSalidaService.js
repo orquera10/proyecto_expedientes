@@ -46,9 +46,32 @@ async function buscarUsuario(telefono, db) {
   return result.rows[0];
 }
 
-async function preparar({ telefono, codigo, numero, anio }, db, { lockExpediente = false } = {}) {
+async function buscarUsuarioSesion(usuarioSesion, db) {
+  const id = Number(usuarioSesion?.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new BotSalidaError("Sesion de usuario invalida", 401);
+  }
+  const result = await db.query(
+    `SELECT id, usuario, COALESCE(nombreusuario, nombre) AS nombre,
+            nivel, codigosector
+     FROM usuarios
+     WHERE id = $1 AND habilitado IS NOT FALSE
+     LIMIT 1`,
+    [id]
+  );
+  if (!result.rows[0]) throw new BotSalidaError("Usuario no autorizado", 403);
+  return result.rows[0];
+}
+
+async function preparar(
+  { telefono, usuarioSesion, codigo, numero, anio },
+  db,
+  { lockExpediente = false } = {}
+) {
   const clave = validarClave({ codigo, numero, anio });
-  const usuario = await buscarUsuario(telefono, db);
+  const usuario = usuarioSesion
+    ? await buscarUsuarioSesion(usuarioSesion, db)
+    : await buscarUsuario(telefono, db);
 
   const expedienteResult = await db.query(
     `SELECT codinum, TRIM(codigo::text) AS codigo, numero, anio, tipo,
@@ -112,7 +135,11 @@ export async function prepararSalidaParaBot(data) {
   return preparar(data, pool);
 }
 
-export async function registrarSalidaParaBot(data) {
+export async function prepararSalidaParaUsuario(data, usuarioSesion) {
+  return preparar({ ...data, usuarioSesion }, pool);
+}
+
+async function registrarSalida(data) {
   const client = await pool.connect();
 
   try {
@@ -188,4 +215,12 @@ export async function registrarSalidaParaBot(data) {
   } finally {
     client.release();
   }
+}
+
+export async function registrarSalidaParaBot(data) {
+  return registrarSalida(data);
+}
+
+export async function registrarSalidaParaUsuario(data, usuarioSesion) {
+  return registrarSalida({ ...data, usuarioSesion });
 }

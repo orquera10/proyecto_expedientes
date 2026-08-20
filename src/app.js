@@ -7,9 +7,9 @@ import sectorRoutes from "./routes/sectorRoutes.js";
 import reparticionRoutes from "./routes/reparticionRoutes.js";
 import partidaRoutes from "./routes/partidaRoutes.js";
 import movimientoRoutes from "./routes/movimientoRoutes.js";
-import aiRoutes from "./routes/aiRoutes.js";
 import botExpedienteRoutes from "./routes/botExpedienteRoutes.js";
 import botUsuarioRoutes from "./routes/botUsuarioRoutes.js";
+import asistenteRoutes from "./routes/asistenteRoutes.js";
 import pool from "./config/db.js";
 
 const app = express();
@@ -78,9 +78,9 @@ app.use("/api/sectores", sectorRoutes);
 app.use("/api/reparticiones", reparticionRoutes);
 app.use("/api/partidas", partidaRoutes);
 app.use("/api/movimientos", movimientoRoutes);
-app.use("/api/ai", aiRoutes);
 app.use("/api/bot/expedientes", botExpedienteRoutes);
 app.use("/api/bot/usuarios", botUsuarioRoutes);
+app.use("/api/asistente", asistenteRoutes);
 
 // Salud general del servicio
 app.get("/health", (_req, res) => {

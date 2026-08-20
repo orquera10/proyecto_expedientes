@@ -135,26 +135,18 @@ Si no encuentra un expediente, verifique:
 - Codigo, Numero y Anio correctos.
 - Que el expediente no este deshabilitado.
 
-## Asistente (IA)
+## Asistente interno
 
-Puede consultar al asistente desde el boton flotante.
+El boton flotante abre un menu guiado con las mismas operaciones disponibles en
+el bot de WhatsApp:
 
-Ejemplos:
+- Consultar un expediente y sus ultimos movimientos.
+- Dar entrada a un expediente dirigido al sector del usuario.
+- Dar salida a un expediente que se encuentra en el sector del usuario.
 
-- "Ultimos expedientes dirigidos a mi sector"
-- "Ultimos expedientes en mi sector"
-- "Expediente 769 83 2024"
-- "Expedientes relacionados con informatica"
-- "Expedientes relacionados con vehiculos que van a mi sector"
-
-Comandos utiles:
-
-- "solo numeros" (devuelve solo codigo-numero-anio del ultimo listado).
-
-Si el asistente no entiende:
-
-- Pruebe con una frase mas concreta.
-- Indique el tema del asunto (ej: "teclados", "vehiculos").
+No solicita telefono: utiliza el usuario logueado, su nivel y su sector. Para
+operar, seleccione una opcion, ingrese Codigo, Numero y Anio y complete los datos
+que solicita el asistente. Las salidas permiten abrir el remito generado.
 
 ## Recomendaciones
 

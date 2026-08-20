@@ -236,17 +236,25 @@ function Dashboard() {
   const [cargaMensaje, setCargaMensaje] = useState("");
   const [consultaActiva, setConsultaActiva] = useState(null);
   const [chatAbierto, setChatAbierto] = useState(false);
-  const [chatInput, setChatInput] = useState("");
-  const [chatMensajes, setChatMensajes] = useState([
-    {
-      role: "assistant",
-      content: "Hola, soy Sid. Decime que queres buscar en expedientes.",
-    },
-  ]);
   const [chatEstado, setChatEstado] = useState("idle");
   const [chatError, setChatError] = useState("");
-  const chatScrollRef = useRef(null);
-  const chatInputRef = useRef(null);
+  const [asistentePaso, setAsistentePaso] = useState("menu");
+  const [asistenteAccion, setAsistenteAccion] = useState(null);
+  const [asistenteClave, setAsistenteClave] = useState({
+    codigo: "",
+    numero: "",
+    anio: "",
+  });
+  const [asistenteDatos, setAsistenteDatos] = useState(null);
+  const [asistenteResultado, setAsistenteResultado] = useState(null);
+  const [asistenteForm, setAsistenteForm] = useState({
+    fecha: "",
+    motivo: "",
+    destino: "",
+    fojas: "",
+    caja: "",
+    cajainterna: "",
+  });
   const movimientoActual = movimientos.find((mov) => mov.habilitado !== false);
   const puedeEntrada =
     !!movimientoActual &&
@@ -400,17 +408,6 @@ function Dashboard() {
     const timeout = setTimeout(() => setChatError(""), 5000);
     return () => clearTimeout(timeout);
   }, [chatError]);
-
-  useEffect(() => {
-    if (!chatScrollRef.current) return;
-    chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-  }, [chatMensajes, chatEstado]);
-
-  useEffect(() => {
-    if (!chatAbierto) return;
-    if (!chatInputRef.current) return;
-    chatInputRef.current.focus();
-  }, [chatAbierto, chatEstado]);
 
   useEffect(() => {
     if (seccionActiva !== "Registrar Expediente") return;
@@ -830,56 +827,127 @@ function Dashboard() {
     }
   }
 
-  async function enviarConsultaChat(texto) {
+  function volverMenuAsistente() {
+    setAsistentePaso("menu");
+    setAsistenteAccion(null);
+    setAsistenteDatos(null);
+    setAsistenteResultado(null);
+    setAsistenteClave({ codigo: "", numero: "", anio: "" });
+    setAsistenteForm({
+      fecha: "",
+      motivo: "",
+      destino: "",
+      fojas: "",
+      caja: "",
+      cajainterna: "",
+    });
+    setChatEstado("idle");
+    setChatError("");
+  }
+
+  function iniciarOperacionAsistente(accion) {
+    setAsistenteAccion(accion);
+    setAsistentePaso("clave");
+    setAsistenteDatos(null);
+    setAsistenteResultado(null);
+    setChatError("");
+  }
+
+  async function fetchAsistente(url, opciones = {}) {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No hay sesion activa.");
+    const response = await fetch(`${API_BASE}${url}`, {
+      ...opciones,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opciones.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("usuario");
+      navigate("/login", { replace: true });
+      throw new Error("La sesion vencio.");
+    }
+    if (!response.ok) {
+      throw new Error(payload?.error || "No se pudo completar la operacion");
+    }
+    return payload;
+  }
+
+  async function buscarExpedienteAsistente(event) {
+    event.preventDefault();
     setChatEstado("loading");
     setChatError("");
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setChatEstado("error");
-      setChatError("No hay sesion activa.");
-      return;
-    }
+    const { codigo, numero, anio } = asistenteClave;
+    const sufijo = asistenteAccion === "consulta" ? "" : `/${asistenteAccion}`;
 
     try {
-      const response = await fetch(`${API_BASE}/api/ai/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: texto }),
-      });
-      const payload = await response.json();
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("usuario");
-        navigate("/login", { replace: true });
-        return;
+      const payload = await fetchAsistente(
+        `/api/asistente/${encodeURIComponent(codigo.trim())}/${numero}/${anio}${sufijo}`
+      );
+      setAsistenteDatos(payload);
+      if (asistenteAccion === "consulta") {
+        setAsistentePaso("consulta");
+      } else {
+        const expediente = payload.expediente || {};
+        setAsistenteForm({
+          fecha: todayISO(),
+          motivo: "",
+          destino: "",
+          fojas: expediente.fojas ? String(expediente.fojas) : "",
+          caja: expediente.caja || "",
+          cajainterna: expediente.cajainterna || "",
+        });
+        setAsistentePaso("formulario");
       }
-      if (!response.ok) {
-        throw new Error(payload?.error || "No se pudo consultar el asistente");
-      }
-
-      setChatMensajes((prev) => [
-        ...prev,
-        { role: "assistant", content: payload.answer || "Sin respuesta." },
-      ]);
       setChatEstado("idle");
     } catch (err) {
       setChatEstado("error");
       setChatError(err.message);
     }
   }
-  function handleEnviarChat(event) {
-    if (event) event.preventDefault();
-    const texto = chatInput.trim();
-    if (!texto || chatEstado === "loading") return;
-    setChatMensajes((prev) => [...prev, { role: "user", content: texto }]);
-    setChatInput("");
-    enviarConsultaChat(texto);
-    if (chatInputRef.current) {
-      chatInputRef.current.focus();
+
+  async function confirmarOperacionAsistente(event) {
+    event.preventDefault();
+    setChatEstado("loading");
+    setChatError("");
+    const { codigo, numero, anio } = asistenteClave;
+    const esEntrada = asistenteAccion === "entrada";
+
+    try {
+      const payload = await fetchAsistente(
+        `/api/asistente/${encodeURIComponent(codigo.trim())}/${numero}/${anio}/${asistenteAccion}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            [esEntrada ? "fechaentrada" : "fechasalida"]:
+              asistenteForm.fecha || todayISO(),
+            motivo: asistenteForm.motivo || null,
+            destino: esEntrada ? undefined : asistenteForm.destino,
+            fojas: asistenteForm.fojas ? Number(asistenteForm.fojas) : null,
+            caja: asistenteForm.caja || null,
+            cajainterna: asistenteForm.cajainterna || null,
+          }),
+        }
+      );
+      setAsistenteResultado(payload);
+      setAsistentePaso("resultado");
+      setChatEstado("idle");
+      if (esEntrada) await fetchEntradas(entradaPage);
+      else await fetchSalidas(salidaPage);
+      if (consultaActiva) {
+        await fetchExpediente(
+          consultaActiva.codigo,
+          consultaActiva.numero,
+          consultaActiva.anio
+        );
+      }
+    } catch (err) {
+      setChatEstado("error");
+      setChatError(err.message);
     }
   }
 
@@ -5929,69 +5997,269 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
         )}
         <div className="fixed bottom-6 right-6 z-40">
           {chatAbierto && (
-            <div className="mb-2 w-[320px] overflow-hidden rounded-3xl border border-ink/10 bg-white shadow-haze">
-              <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <img src={sidIcon} alt="Sid" className="h-8 w-8" />
-                  Sid
+            <div className="mb-2 w-[400px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-3xl border border-ink/10 bg-white shadow-haze">
+              <div className="flex items-center justify-between border-b border-ink/10 bg-ink px-4 py-3 text-white">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <img src={sidIcon} alt="Sid" className="h-9 w-9" />
+                  <div>
+                    <div>Sid · Asistente interno</div>
+                    <div className="text-[10px] font-normal text-white/60">
+                      Usuario: {usuarioInfo?.nombre || usuarioInfo?.usuario}
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  className="rounded-full px-2 py-1 text-xs text-ink/60 hover:bg-ink/5"
+                  className="rounded-full px-3 py-1 text-xs text-white/70 hover:bg-white/10"
                   onClick={() => setChatAbierto(false)}
                 >
                   Cerrar
                 </button>
               </div>
-              <div
-                ref={chatScrollRef}
-                className="max-h-64 space-y-2 overflow-y-auto px-4 py-3 text-sm"
-              >
-                {chatMensajes.map((msg, index) => (
-                  <div
-                    key={`${msg.role}-${index}`}
-                    className={`rounded-2xl px-3 py-2 ${
-                      msg.role === "user"
-                        ? "ml-auto max-w-[85%] bg-ink text-stone"
-                        : "max-w-[85%] bg-stone text-ink"
-                    }`}
-                  >
-                    {msg.content}
+
+              <div className="max-h-[68vh] overflow-y-auto bg-stone/60 p-4">
+                {asistentePaso === "menu" && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-ink shadow-sm">
+                      Hola. Elegí una opción para comenzar:
+                    </div>
+                    {[
+                      ["consulta", "1", "Consultar expediente", "Ver sus datos y últimos movimientos."],
+                      ["entrada", "2", "Dar entrada", "Registrar el ingreso al sector."],
+                      ["salida", "3", "Dar salida", "Enviar el expediente a otro sector."],
+                    ].map(([accion, numeroOpcion, titulo, detalle]) => (
+                      <button
+                        key={accion}
+                        type="button"
+                        onClick={() => iniciarOperacionAsistente(accion)}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-ink/10 bg-white px-4 py-3 text-left shadow-sm transition hover:border-moss/40 hover:bg-moss/5"
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-moss text-sm font-bold text-white">
+                          {numeroOpcion}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-ink">
+                            {titulo}
+                          </span>
+                          <span className="block text-xs text-ink/55">{detalle}</span>
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                ))}
-                {chatEstado === "loading" && (
-                  <div className="max-w-[85%] rounded-2xl bg-stone px-3 py-2 text-ink">
-                    Pensando...
+                )}
+
+                {asistentePaso === "clave" && (
+                  <form onSubmit={buscarExpedienteAsistente} className="space-y-3">
+                    <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-ink shadow-sm">
+                      Ingresá la identificación del expediente para {asistenteAccion === "consulta"
+                        ? "consultarlo"
+                        : asistenteAccion === "entrada"
+                          ? "darle entrada"
+                          : "darle salida"}.
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        ["codigo", "Código"],
+                        ["numero", "Número"],
+                        ["anio", "Año"],
+                      ].map(([campo, etiqueta]) => (
+                        <label key={campo} className="text-xs font-semibold text-ink/60">
+                          {etiqueta}
+                          <input
+                            type={campo === "codigo" ? "text" : "number"}
+                            value={asistenteClave[campo]}
+                            onChange={(event) =>
+                              setAsistenteClave((prev) => ({
+                                ...prev,
+                                [campo]: event.target.value,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-moss/50 focus:outline-none"
+                            required
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={chatEstado === "loading"}
+                        className="flex-1 cursor-pointer rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {chatEstado === "loading" ? "Buscando..." : "Continuar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={volverMenuAsistente}
+                        className="rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                      >
+                        Menú
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {asistentePaso === "consulta" && asistenteDatos && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl rounded-tl-sm bg-white p-4 text-sm text-ink shadow-sm">
+                      <div className="font-semibold">
+                        Expediente {asistenteDatos.expediente.codigo}-
+                        {asistenteDatos.expediente.numero}/{asistenteDatos.expediente.anio}
+                      </div>
+                      <div className="mt-2 text-xs text-ink/65">
+                        <p><b>Asunto:</b> {asistenteDatos.expediente.asunto || "N/D"}</p>
+                        <p><b>Iniciador:</b> {asistenteDatos.expediente.iniciador || "N/D"}</p>
+                        <p><b>Beneficiario:</b> {asistenteDatos.expediente.beneficiario || "N/D"}</p>
+                        <p><b>Fojas:</b> {asistenteDatos.expediente.fojas || "N/D"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {(asistenteDatos.movimientos || []).map((movimiento) => (
+                        <div key={movimiento.id} className="rounded-2xl bg-white px-4 py-3 text-xs text-ink/65 shadow-sm">
+                          <div className="flex justify-between gap-2 font-semibold text-ink">
+                            <span>{movimiento.estado === "E" ? "Entrada" : "Salida"}</span>
+                            <span>{movimiento.fechamov ? String(movimiento.fechamov).slice(0, 10).split("-").reverse().join("/") : "N/D"}</span>
+                          </div>
+                          <div className="mt-1">
+                            {movimiento.origen || "N/D"} → {movimiento.destino || "N/D"}
+                          </div>
+                          {movimiento.estado === "S" && (
+                            <button
+                              type="button"
+                              onClick={() => abrirVistaPreviaRemito(movimiento.id, asistenteDatos.expediente)}
+                              className="mt-2 cursor-pointer font-semibold text-moss hover:underline"
+                            >
+                              Ver remito
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={volverMenuAsistente} className="w-full rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white">
+                      Volver al menú
+                    </button>
+                  </div>
+                )}
+
+                {asistentePaso === "formulario" && asistenteDatos && (
+                  <form onSubmit={confirmarOperacionAsistente} className="space-y-3">
+                    <div className="rounded-2xl rounded-tl-sm bg-white p-4 text-sm text-ink shadow-sm">
+                      <div className="font-semibold">
+                        {asistenteDatos.expediente.codigo}-{asistenteDatos.expediente.numero}/
+                        {asistenteDatos.expediente.anio}
+                      </div>
+                      <div className="mt-1 text-xs text-ink/60">
+                        {asistenteDatos.expediente.asunto || "Sin asunto"}
+                      </div>
+                      <div className="mt-2 text-xs font-semibold text-moss">
+                        {asistenteAccion === "entrada"
+                          ? `Entrada a ${asistenteDatos.sector?.sector || "tu sector"}`
+                          : `Salida desde ${asistenteDatos.origen?.sector || "tu sector"}`}
+                      </div>
+                    </div>
+
+                    <label className="block text-xs font-semibold text-ink/60">
+                      Fecha
+                      <input
+                        type="date"
+                        value={asistenteForm.fecha}
+                        onChange={(event) => setAsistenteForm((prev) => ({ ...prev, fecha: event.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+                        required
+                      />
+                    </label>
+                    {asistenteAccion === "salida" && (
+                      <label className="block text-xs font-semibold text-ink/60">
+                        Sector de destino
+                        <select
+                          value={asistenteForm.destino}
+                          onChange={(event) => setAsistenteForm((prev) => ({ ...prev, destino: event.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+                          required
+                        >
+                          <option value="">Seleccionar</option>
+                          {(asistenteDatos.destinos || []).map((sector) => (
+                            <option key={sector.codigosector} value={sector.codigosector}>
+                              {sector.codigosector} - {sector.sector}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        ["fojas", "Fojas", "number"],
+                        ["cajainterna", "Caja interna", "text"],
+                        ["caja", "Caja archivo", "text"],
+                      ].map(([campo, etiqueta, tipo]) => (
+                        <label key={campo} className="text-xs font-semibold text-ink/60">
+                          {etiqueta}
+                          <input
+                            type={tipo}
+                            value={asistenteForm[campo]}
+                            onChange={(event) => setAsistenteForm((prev) => ({ ...prev, [campo]: event.target.value }))}
+                            className="mt-1 w-full rounded-xl border border-ink/15 bg-white px-2 py-2 text-sm text-ink"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <label className="block text-xs font-semibold text-ink/60">
+                      Motivo
+                      <textarea
+                        rows={2}
+                        value={asistenteForm.motivo}
+                        onChange={(event) => setAsistenteForm((prev) => ({ ...prev, motivo: event.target.value }))}
+                        className="mt-1 w-full resize-none rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={chatEstado === "loading"}
+                        className="flex-1 cursor-pointer rounded-xl bg-moss px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {chatEstado === "loading"
+                          ? "Registrando..."
+                          : asistenteAccion === "entrada"
+                            ? "Confirmar entrada"
+                            : "Confirmar salida"}
+                      </button>
+                      <button type="button" onClick={volverMenuAsistente} className="rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm font-semibold text-ink/70">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {asistentePaso === "resultado" && asistenteResultado && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl rounded-tl-sm border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+                      <div className="font-semibold">Operación registrada correctamente.</div>
+                      <div className="mt-1 text-xs">
+                        Movimiento N.º {asistenteResultado.movimiento?.movimiento || asistenteResultado.movimiento?.id}
+                      </div>
+                    </div>
+                    {asistenteAccion === "salida" && asistenteResultado.movimiento?.id && (
+                      <button
+                        type="button"
+                        onClick={() => abrirVistaPreviaRemito(asistenteResultado.movimiento.id, asistenteResultado.expediente)}
+                        className="w-full cursor-pointer rounded-xl border border-moss/30 bg-moss/10 px-3 py-2 text-sm font-semibold text-moss"
+                      >
+                        Ver remito
+                      </button>
+                    )}
+                    <button type="button" onClick={volverMenuAsistente} className="w-full rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white">
+                      Volver al menú
+                    </button>
+                  </div>
+                )}
+
+                {chatError && (
+                  <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {chatError}
                   </div>
                 )}
               </div>
-              {chatError && (
-                <div className="px-4 pb-2 text-xs text-red-600">
-                  {chatError}
-                </div>
-              )}
-              <form
-                className="border-t border-ink/10 px-4 py-3"
-                onSubmit={handleEnviarChat}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={chatInputRef}
-                    className="w-full rounded-full border border-ink/15 bg-white px-3 py-2 text-xs text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
-                    placeholder="Escribi tu consulta..."
-                    value={chatInput}
-                    onChange={(event) => setChatInput(event.target.value)}
-                    disabled={chatEstado === "loading"}
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-full bg-ink px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone transition hover:bg-moss disabled:cursor-not-allowed disabled:opacity-70"
-                    disabled={chatEstado === "loading"}
-                  >
-                    Enviar
-                  </button>
-                </div>
-              </form>
             </div>
           )}
           <button
