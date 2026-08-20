@@ -51,8 +51,24 @@ async function ensureExpedientesCodinumSequence() {
   }
 }
 
-ensureExpedientesTipoColumn();
-ensureExpedientesCodinumSequence();
+async function ensureMovimientoFechaHoraColumn() {
+  try {
+    await pool.query(
+      "ALTER TABLE movimiento ADD COLUMN IF NOT EXISTS fechahora TIMESTAMPTZ"
+    );
+    await pool.query(
+      "ALTER TABLE movimiento ALTER COLUMN fechahora SET DEFAULT CURRENT_TIMESTAMP"
+    );
+  } catch (err) {
+    console.error("Error asegurando columna fechahora:", err);
+  }
+}
+
+await Promise.all([
+  ensureExpedientesTipoColumn(),
+  ensureExpedientesCodinumSequence(),
+  ensureMovimientoFechaHoraColumn(),
+]);
 
 // Rutas de la API
 app.use("/api/expedientes", expedienteRoutes);

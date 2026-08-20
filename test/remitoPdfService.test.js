@@ -4,12 +4,18 @@ import assert from "node:assert/strict";
 import {
   crearDocumentoRemito,
   formatearFechaRemito,
+  formatearHoraRemito,
   nombreArchivoRemito,
   usuarioPuedeVerRemito,
 } from "../src/services/remitoPdfService.js";
 
 test("formatea la fecha y crea un nombre de archivo seguro", () => {
   assert.equal(formatearFechaRemito("2026-08-20T00:00:00.000Z"), "20/08/2026");
+  assert.equal(
+    formatearFechaRemito(new Date("2026-08-20T00:00:00.000Z")),
+    "20/08/2026"
+  );
+  assert.equal(formatearHoraRemito("2026-08-20T15:34:00.000Z"), "12:34 hs");
   assert.equal(
     nombreArchivoRemito({ codigo: "A/B", numero: 42, anio: 2026 }),
     "remito-A_B-42-2026.pdf"
@@ -32,6 +38,7 @@ test("genera un remito PDF valido", async () => {
     numero: 42,
     anio: 2026,
     fechamov: "2026-08-20",
+    fechahora: "2026-08-20T15:34:00.000Z",
     tipo: "Administrativo",
     partida: "123",
     fojas: 18,

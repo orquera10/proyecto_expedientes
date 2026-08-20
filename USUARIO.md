@@ -84,6 +84,7 @@ Al registrar salida:
 - Puede actualizar fojas y cajas si corresponde.
 - Se abre una vista previa del remito PDF para que pueda imprimirlo o guardarlo
   en la computadora. El sistema no lo descarga automaticamente.
+- Los nuevos remitos registran la hora de salida con la zona horaria de Argentina.
 - Puede volver a abrirlo desde "Ver remito" en la tarjeta del movimiento de
   salida dentro de Consulta de Expedientes.
 

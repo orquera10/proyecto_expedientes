@@ -123,6 +123,7 @@ export async function obtenerDatosRemitoPorMovimiento(id) {
             m.numero,
             m.anio,
             m.fechamov,
+            m.fechahora,
             m.origen,
             m.destino,
             m.motivo,

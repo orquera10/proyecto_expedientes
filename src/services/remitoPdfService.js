@@ -1,10 +1,14 @@
 import PDFDocument from "pdfkit";
+import { fileURLToPath } from "node:url";
 
 const COLOR_TINTA = "#172126";
 const COLOR_VERDE = "#4f9276";
 const COLOR_GRIS = "#647077";
 const COLOR_BORDE = "#d9dedb";
 const COLOR_FONDO = "#f6f7f4";
+const LOGO_REMITO = fileURLToPath(
+  new URL("../assets/logo-remito.png", import.meta.url)
+);
 
 function texto(valor, fallback = "N/D") {
   if (valor === null || valor === undefined || String(valor).trim() === "") {
@@ -22,11 +26,31 @@ function recortar(valor, maximo) {
 
 export function formatearFechaRemito(valor) {
   if (!valor) return "N/D";
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+    const dia = String(valor.getUTCDate()).padStart(2, "0");
+    const mes = String(valor.getUTCMonth() + 1).padStart(2, "0");
+    return `${dia}/${mes}/${valor.getUTCFullYear()}`;
+  }
   const coincidencia = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (coincidencia) {
     return `${coincidencia[3]}/${coincidencia[2]}/${coincidencia[1]}`;
   }
   return texto(valor);
+}
+
+export function formatearHoraRemito(valor) {
+  if (!valor) return "";
+  const fecha = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(fecha.getTime())) return "";
+  const partes = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(fecha);
+  const hora = partes.find((parte) => parte.type === "hour")?.value;
+  const minuto = partes.find((parte) => parte.type === "minute")?.value;
+  return hora && minuto ? `${hora}:${minuto} hs` : "";
 }
 
 export function nombreArchivoRemito(datos) {
@@ -133,17 +157,23 @@ export function crearDocumentoRemito(datos) {
   const anchoPagina = doc.page.width - 84;
 
   doc.roundedRect(izquierda, 42, anchoPagina, 72, 8).fill(COLOR_TINTA);
+  doc.roundedRect(izquierda + 10, 48, 64, 60, 5).fill("#ffffff");
+  doc.image(LOGO_REMITO, izquierda + 14, 51, {
+    fit: [56, 54],
+    align: "center",
+    valign: "center",
+  });
   doc
     .font("Helvetica-Bold")
     .fontSize(18)
     .fillColor("#ffffff")
-    .text("REMITO DE SALIDA", izquierda + 18, 59, { width: 300 });
+    .text("REMITO DE SALIDA", izquierda + 88, 59, { width: 260 });
   doc
     .font("Helvetica")
     .fontSize(8.5)
     .fillColor("#dce5e1")
-    .text("SEGUIMIENTO INTERNO DE EXPEDIENTES", izquierda + 18, 84, {
-      width: 330,
+    .text("SEGUIMIENTO INTERNO DE EXPEDIENTES", izquierda + 88, 84, {
+      width: 260,
     });
   doc
     .font("Helvetica-Bold")
@@ -155,12 +185,19 @@ export function crearDocumentoRemito(datos) {
     });
   doc
     .font("Helvetica")
-    .fontSize(9)
+    .fontSize(8.5)
     .fillColor("#dce5e1")
     .text(formatearFechaRemito(datos.fechamov), izquierda + anchoPagina - 150, 81, {
       width: 130,
       align: "right",
     });
+  const horaMovimiento = formatearHoraRemito(datos.fechahora);
+  if (horaMovimiento) {
+    doc.text(horaMovimiento, izquierda + anchoPagina - 150, 95, {
+      width: 130,
+      align: "right",
+    });
+  }
 
   doc
     .font("Helvetica-Bold")
