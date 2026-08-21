@@ -27,10 +27,20 @@ function recortar(valor, maximo) {
 export function usuarioPuedeVerRemitoLote(usuario, remito) {
   const sector = usuario?.codigosector ? String(usuario.codigosector) : null;
   if (usuario?.nivel === "S" || sector === "1") return true;
-  if (!sector) return false;
-  return [remito?.codigoren, remito?.coddestino].some(
-    (codigo) => String(codigo || "") === sector
+  if (!sector && !usuario?.sector) return false;
+  const matchCodigo = [remito?.codigoren, remito?.coddestino].some(
+    (codigo) => sector && String(codigo || "") === sector
   );
+  if (matchCodigo) return true;
+  const usuarioSector = String(usuario?.sector || "").trim().toLowerCase();
+  if (usuarioSector) {
+    const origen = String(remito?.origen || "").trim().toLowerCase();
+    const destino = String(remito?.destino || "").trim().toLowerCase();
+    if (origen === usuarioSector || destino === usuarioSector) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function nombreArchivoRemitoLote(remito) {

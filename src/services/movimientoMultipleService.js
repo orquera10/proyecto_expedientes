@@ -177,6 +177,11 @@ export async function registrarEntradaMultiple(data, usuarioSesion) {
       throw new MovimientoMultipleError("Sector de entrada invalido");
     }
 
+    const seqResult = await client.query(
+      "SELECT nextval(COALESCE(pg_get_serial_sequence('movimiento', 'movimiento'), 'movimiento_movimiento_seq')) AS num"
+    );
+    const numeroMovimientoLote = seqResult.rows[0].num;
+
     const movimientos = [];
     for (const actual of preparados) {
       const expediente = actual.expediente;
@@ -196,9 +201,9 @@ export async function registrarEntradaMultiple(data, usuarioSesion) {
       const result = await client.query(
         `INSERT INTO movimiento (
            codigo, numero, anio, fechamov, origen, destino, motivo, estado,
-           usuario, codigosector, codigoren, coddestino, habilitado
+           movimiento, usuario, codigosector, codigoren, coddestino, habilitado
          )
-         VALUES ($1, $2, $3, $4, $5, $5, $6, 'E', $7, $8, $8, $8, TRUE)
+         VALUES ($1, $2, $3, $4, $5, $5, $6, 'E', $7, $8, $9, $9, $9, TRUE)
          RETURNING id, movimiento, codigo, numero, anio, fechamov`,
         [
           expediente.codigo,
@@ -207,6 +212,7 @@ export async function registrarEntradaMultiple(data, usuarioSesion) {
           fecha,
           sectorEntrada.sector,
           motivo ? motivo.toUpperCase() : null,
+          numeroMovimientoLote,
           usuario.nombre || usuario.usuario || null,
           sectorEntrada.codigosector,
         ]
@@ -282,15 +288,20 @@ export async function registrarSalidaMultiple(data, usuarioSesion) {
       throw new MovimientoMultipleError("Destino invalido");
     }
 
+    const seqResult = await client.query(
+      "SELECT nextval(COALESCE(pg_get_serial_sequence('movimiento', 'movimiento'), 'movimiento_movimiento_seq')) AS num"
+    );
+    const numeroMovimientoLote = seqResult.rows[0].num;
+
     const movimientos = [];
     for (const actual of preparados) {
       const expediente = actual.expediente;
       const result = await client.query(
         `INSERT INTO movimiento (
            codigo, numero, anio, fechamov, origen, destino, motivo, estado,
-           usuario, codigosector, codigoren, coddestino, habilitado
+           movimiento, usuario, codigosector, codigoren, coddestino, habilitado
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'S', $8, $9, $10, $11, TRUE)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'S', $8, $9, $10, $11, $12, TRUE)
          RETURNING id, movimiento, codigo, numero, anio, fechamov`,
         [
           expediente.codigo,
@@ -300,6 +311,7 @@ export async function registrarSalidaMultiple(data, usuarioSesion) {
           origen.sector,
           destino.sector,
           motivo ? motivo.toUpperCase() : null,
+          numeroMovimientoLote,
           usuario.nombre || usuario.usuario || null,
           destino.codigosector,
           origen.codigosector,

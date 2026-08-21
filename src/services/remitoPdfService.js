@@ -67,10 +67,20 @@ export function usuarioPuedeVerRemito(usuario, datos) {
     ? String(usuario.codigosector)
     : null;
   if (usuario?.nivel === "S" || codigosector === "1") return true;
-  if (!codigosector) return false;
-  return [datos?.codigoren, datos?.coddestino].some(
-    (codigo) => String(codigo || "") === codigosector
+  if (!codigosector && !usuario?.sector) return false;
+  const matchCodigo = [datos?.codigoren, datos?.coddestino].some(
+    (codigo) => codigosector && String(codigo || "") === codigosector
   );
+  if (matchCodigo) return true;
+  const usuarioSector = String(usuario?.sector || "").trim().toLowerCase();
+  if (usuarioSector) {
+    const origen = String(datos?.origen || "").trim().toLowerCase();
+    const destino = String(datos?.destino || "").trim().toLowerCase();
+    if (origen === usuarioSector || destino === usuarioSector) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function campo(doc, etiqueta, valor, x, y, ancho) {
