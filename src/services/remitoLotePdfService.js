@@ -210,12 +210,15 @@ export function crearDocumentoRemitoLote(remito) {
   const rango = doc.bufferedPageRange();
   for (let i = 0; i < rango.count; i += 1) {
     doc.switchToPage(rango.start + i);
+    const oldBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     doc.font("Helvetica").fontSize(7).fillColor(GRIS).text(
       `Página ${i + 1} de ${rango.count}`,
       MARGEN,
       doc.page.height - 30,
-      { width: doc.page.width - MARGEN * 2, align: "right" }
+      { width: doc.page.width - MARGEN * 2, align: "right", lineBreak: false }
     );
+    doc.page.margins.bottom = oldBottom;
   }
   return doc;
 }

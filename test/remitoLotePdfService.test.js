@@ -14,7 +14,24 @@ test("controla acceso y nombre del remito multiple", () => {
   assert.equal(nombreArchivoRemitoLote(remito), "remito-multiple-12.pdf");
 });
 
-test("genera un remito multiple de varias paginas", async () => {
+test("genera un remito multiple de una sola pagina sin hojas en blanco", () => {
+  const remito = {
+    id: 15,
+    fechamov: "2026-08-20",
+    fechahora: "2026-08-20T15:30:00.000Z",
+    origen: "SECTOR A",
+    destino: "SECTOR B",
+    expedientes: [
+      { codigo: "769", numero: 1, anio: 2026, tipo: "Nota", asunto: "Prueba 1", fojas: 2 },
+      { codigo: "769", numero: 2, anio: 2026, tipo: "Nota", asunto: "Prueba 2", fojas: 3 },
+    ],
+  };
+  const documento = crearDocumentoRemitoLote(remito);
+  const rango = documento.bufferedPageRange();
+  assert.equal(rango.count, 1);
+});
+
+test("genera un remito multiple de varias paginas sin hojas en blanco", async () => {
   const remito = {
     id: 12,
     fechamov: "2026-08-20",
@@ -31,6 +48,8 @@ test("genera un remito multiple de varias paginas", async () => {
     })),
   };
   const documento = crearDocumentoRemitoLote(remito);
+  const rango = documento.bufferedPageRange();
+  assert.equal(rango.count, 2);
   const partes = [];
   documento.on("data", (parte) => partes.push(parte));
   const terminado = new Promise((resolve, reject) => {
