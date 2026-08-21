@@ -433,6 +433,30 @@ function Dashboard() {
   }, [chatError]);
 
   useEffect(() => {
+    if (!entradaMultipleError) return;
+    const timeout = setTimeout(() => setEntradaMultipleError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [entradaMultipleError]);
+
+  useEffect(() => {
+    if (!entradaMultipleMensaje) return;
+    const timeout = setTimeout(() => setEntradaMultipleMensaje(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [entradaMultipleMensaje]);
+
+  useEffect(() => {
+    if (!salidaMultipleError) return;
+    const timeout = setTimeout(() => setSalidaMultipleError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [salidaMultipleError]);
+
+  useEffect(() => {
+    if (!salidaMultipleMensaje) return;
+    const timeout = setTimeout(() => setSalidaMultipleMensaje(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [salidaMultipleMensaje]);
+
+  useEffect(() => {
     if (seccionActiva !== "Registrar Expediente") return;
     setCargaData((prev) => ({
       ...prev,
@@ -447,6 +471,17 @@ function Dashboard() {
     if (seccionActiva !== "Entrada de Expedientes") return;
     fetchEntradas(entradaPage);
   }, [seccionActiva, entradaPage]);
+
+  useEffect(() => {
+    if (seccionActiva !== "Entrada Múltiple") return;
+    cargarEntradaMultiple();
+  }, [seccionActiva]);
+
+  useEffect(() => {
+    if (seccionActiva !== "Salida Múltiple") return;
+    cargarSalidaMultiple();
+    cargarSectores();
+  }, [seccionActiva]);
 
   useEffect(() => {
     if (!entradaModalOpen) return;
@@ -2378,8 +2413,17 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
     const termino = busqueda.trim().toLowerCase();
     const visibles = resultados.filter((item) => {
       if (!termino) return true;
-      return [item.codigo, item.numero, item.anio, item.asunto, item.beneficiario]
-        .some((valor) => String(valor || "").toLowerCase().includes(termino));
+      return [
+        item.codigo,
+        item.numero,
+        item.anio,
+        item.codinum,
+        item.asunto,
+        item.beneficiario,
+        item.iniciador,
+        item.origen,
+        item.destino,
+      ].some((valor) => String(valor || "").toLowerCase().includes(termino));
     });
     const todosSeleccionados =
       visibles.length > 0 &&
@@ -2399,49 +2443,71 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
 
     return (
       <div className="space-y-6">
-        <div className={`rounded-[28px] border p-6 shadow-sm ${
-          esEntrada
-            ? "border-emerald-200 bg-emerald-50/60"
-            : "border-red-200 bg-red-50/60"
-        }`}>
+        <div className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="font-display text-2xl font-semibold text-ink">
-                {esEntrada ? "Entrada múltiple" : "Salida múltiple"} de expedientes
+                {esEntrada ? "Entrada Múltiple" : "Salida Múltiple"} de Expedientes
               </h2>
               <p className="mt-1 text-sm text-ink/60">
                 {esEntrada
-                  ? "Selecciona los expedientes que llegaron juntos a tu sector."
-                  : "Selecciona los expedientes que serán enviados juntos al mismo sector."}
+                  ? usuarioInfo?.nivel === "S"
+                    ? "Selecciona las salidas registradas para dar entrada grupal."
+                    : "Selecciona los expedientes que llegaron juntos a tu sector."
+                  : usuarioInfo?.nivel === "S"
+                    ? "Selecciona expedientes para registrar salida grupal."
+                    : "Selecciona los expedientes que serán enviados juntos al mismo sector."}
               </p>
             </div>
-            <div className="rounded-2xl border border-ink/10 bg-white px-4 py-2 text-xs font-semibold text-ink/60">
-              {seleccion.length} seleccionados · máximo 100
+            <div className="flex items-center gap-2">
+              <div
+                className={`rounded-2xl border px-4 py-2 text-xs font-semibold ${
+                  seleccion.length > 0
+                    ? esEntrada
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                    : "border-ink/10 bg-stone text-ink/60"
+                }`}
+              >
+                {seleccion.length} seleccionados · máximo 100
+              </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 md:flex-row">
-            <input
-              value={busqueda}
-              onChange={(event) => setBusqueda(event.target.value)}
-              placeholder="Buscar por expediente, asunto o beneficiario"
-              className="flex-1 rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none"
-            />
+          <div className="mt-6 flex flex-col gap-3 md:flex-row">
+            <div className="relative flex-1">
+              <input
+                value={busqueda}
+                onChange={(event) => setBusqueda(event.target.value)}
+                placeholder="Buscar por código, número, año, codinum, asunto o beneficiario..."
+                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
+              />
+              {busqueda && (
+                <button
+                  type="button"
+                  onClick={() => setBusqueda("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-xs text-ink/40 hover:text-ink"
+                  title="Limpiar búsqueda"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={alternarTodos}
               disabled={visibles.length === 0}
-              className="cursor-pointer rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink/70 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-ink/70 transition hover:border-moss/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {todosSeleccionados ? "Quitar selección visible" : "Seleccionar todos los visibles"}
+              {todosSeleccionados ? "Deseleccionar visibles" : "Seleccionar todos"}
             </button>
             <button
               type="button"
               onClick={esEntrada ? cargarEntradaMultiple : cargarSalidaMultiple}
               disabled={estadoMultiple === "loading"}
-              className="cursor-pointer rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink/70 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-ink/70 transition hover:border-moss/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Actualizar
+              {estadoMultiple === "loading" ? "Cargando..." : "Actualizar"}
             </button>
           </div>
 
@@ -2451,31 +2517,59 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             </div>
           )}
           {mensajeMultiple && (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <div className="mt-4 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
               {mensajeMultiple}
             </div>
           )}
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10 bg-white">
-            <div className="max-h-[430px] overflow-auto">
+          <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10">
+            <div className="max-h-[420px] overflow-auto">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-white text-ink/60 shadow-sm">
                   <tr>
-                    <th className="w-12 px-4 py-3"></th>
+                    <th className="w-12 px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={todosSeleccionados && visibles.length > 0}
+                        onChange={alternarTodos}
+                        disabled={visibles.length === 0}
+                        className={`h-4 w-4 cursor-pointer rounded ${
+                          esEntrada ? "accent-emerald-600" : "accent-red-600"
+                        }`}
+                        title={
+                          todosSeleccionados
+                            ? "Deseleccionar todos"
+                            : "Seleccionar todos"
+                        }
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold">Expediente</th>
+                    <th className="px-4 py-3 font-semibold">Codinum</th>
                     <th className="px-4 py-3 font-semibold">Asunto</th>
+                    <th className="px-4 py-3 font-semibold">Tipo</th>
                     <th className="px-4 py-3 font-semibold">
-                      {esEntrada ? "Origen" : "Ubicación actual"}
+                      {esEntrada ? "Destino / Origen" : "Origen / Ubicación"}
                     </th>
                     <th className="px-4 py-3 font-semibold">Fecha</th>
+                    <th className="px-4 py-3 font-semibold text-center">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink/10">
                   {estadoMultiple === "loading" && (
-                    <tr><td colSpan={5} className="px-4 py-6 text-center text-ink/60">Cargando...</td></tr>
+                    <tr>
+                      <td colSpan={8} className="px-4 py-6 text-center text-ink/60">
+                        Cargando expedientes...
+                      </td>
+                    </tr>
                   )}
                   {estadoMultiple !== "loading" && visibles.length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-6 text-center text-ink/60">No hay expedientes disponibles.</td></tr>
+                    <tr>
+                      <td colSpan={8} className="px-4 py-6 text-center text-ink/60">
+                        {busqueda
+                          ? "No se encontraron expedientes con el criterio de búsqueda."
+                          : "No hay expedientes disponibles para procesar."}
+                      </td>
+                    </tr>
                   )}
                   {visibles.map((item) => {
                     const clave = claveSeleccionMultiple(item);
@@ -2484,39 +2578,121 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                       <tr
                         key={clave}
                         onClick={() => alternarSeleccionMultiple(tipo, item)}
-                        className={`cursor-pointer transition ${seleccionado ? "bg-moss/10" : "hover:bg-ink/5"}`}
+                        className={`cursor-pointer transition ${
+                          seleccionado
+                            ? esEntrada
+                              ? "bg-emerald-50/80 font-medium"
+                              : "bg-red-50/80 font-medium"
+                            : "hover:bg-ink/5"
+                        }`}
                       >
-                        <td className="px-4 py-3">
+                        <td
+                          className="px-4 py-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <input
                             type="checkbox"
                             checked={seleccionado}
-                            onChange={() => alternarSeleccionMultiple(tipo, item)}
-                            onClick={(event) => event.stopPropagation()}
-                            className="h-4 w-4 accent-moss"
+                            onChange={() =>
+                              alternarSeleccionMultiple(tipo, item)
+                            }
+                            className={`h-4 w-4 cursor-pointer rounded ${
+                              esEntrada ? "accent-emerald-600" : "accent-red-600"
+                            }`}
                             aria-label={`Seleccionar ${clave}`}
                           />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
-                          {item.codigo}-{item.numero}/{item.anio}
+                          {item.codigo || "N/D"}-{item.numero || "N/D"}/
+                          {item.anio || "N/D"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-ink/70">
+                          {item.codinum || "N/D"}
                         </td>
                         <td className="min-w-64 px-4 py-3 text-ink/70">
                           {item.asunto || "Sin asunto"}
                         </td>
-                        <td className="px-4 py-3 text-ink/60">
+                        <td className="whitespace-nowrap px-4 py-3 text-ink/70">
+                          {etiquetaTipo(item.tipo)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-ink/60">
                           {esEntrada
-                            ? item.origen || "N/D"
-                            : item.destino || item.origen || "N/D"}
+                            ? item.destino || item.origen || "N/D"
+                            : item.origen || item.destino || "N/D"}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink/60">
                           {item.fechamov
-                            ? String(item.fechamov).slice(0, 10).split("-").reverse().join("/")
+                            ? new Date(item.fechamov).toLocaleDateString()
                             : "N/D"}
+                        </td>
+                        <td
+                          className="px-4 py-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            aria-label="Ver expediente"
+                            title="Ver expediente"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-moss/40 hover:bg-moss/5"
+                            onClick={() => {
+                              setSeccionActiva("Consulta de Expedientes");
+                              setCodigo(item.codigo ?? "");
+                              setNumero(String(item.numero ?? ""));
+                              setAnio(String(item.anio ?? ""));
+                              setConsultaActiva({
+                                codigo: item.codigo ?? "",
+                                numero: String(item.numero ?? ""),
+                                anio: String(item.anio ?? ""),
+                              });
+                              fetchExpediente(
+                                item.codigo ?? "",
+                                String(item.numero ?? ""),
+                                String(item.anio ?? "")
+                              );
+                            }}
+                          >
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="11" cy="11" r="7" />
+                              <path d="M21 21l-4.3-4.3" />
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink/60">
+            <span>
+              Total: {visibles.length}{" "}
+              {visibles.length === 1 ? "expediente" : "expedientes"}{" "}
+              {termino ? "filtrados" : "disponibles"}
+            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`font-semibold ${
+                  seleccion.length > 0
+                    ? esEntrada
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                    : "text-ink/60"
+                }`}
+              >
+                {seleccion.length} seleccionado
+                {seleccion.length === 1 ? "" : "s"}
+              </span>
             </div>
           </div>
         </div>
@@ -2526,12 +2702,37 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             event.preventDefault();
             registrarMovimientoMultiple(tipo);
           }}
-          className="rounded-[28px] border border-ink/10 bg-white/90 p-6 shadow-sm"
+          className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm"
         >
-          <h3 className="font-display text-xl font-semibold text-ink">
-            Datos comunes del movimiento
-          </h3>
-          <div className={`mt-4 grid gap-4 ${esEntrada ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+          <div className="flex flex-col gap-2 border-b border-ink/10 pb-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="font-display text-xl font-semibold text-ink">
+                Datos comunes del movimiento de {esEntrada ? "entrada" : "salida"}
+              </h3>
+              <p className="mt-1 text-sm text-ink/60">
+                {esEntrada
+                  ? "Define la fecha y motivo común para procesar la entrada de todos los expedientes seleccionados."
+                  : "Selecciona el sector de destino común y los datos para dar salida y emitir el remito único."}
+              </p>
+            </div>
+            <div
+              className={`self-start rounded-2xl border px-4 py-2 text-xs font-semibold md:self-auto ${
+                seleccion.length >= 2
+                  ? esEntrada
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-red-200 bg-red-50 text-red-700"
+                  : "border-ink/10 bg-stone text-ink/60"
+              }`}
+            >
+              {seleccion.length} expedientes a procesar
+            </div>
+          </div>
+
+          <div
+            className={`mt-6 grid gap-4 ${
+              esEntrada ? "md:grid-cols-2" : "md:grid-cols-3"
+            }`}
+          >
             <label className="space-y-2 text-sm font-medium text-ink/70">
               Fecha de {esEntrada ? "entrada" : "salida"}
               <input
@@ -2540,10 +2741,11 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                 onChange={(event) =>
                   setForm((prev) => ({
                     ...prev,
-                    [esEntrada ? "fechaentrada" : "fechasalida"]: event.target.value,
+                    [esEntrada ? "fechaentrada" : "fechasalida"]:
+                      event.target.value,
                   }))
                 }
-                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                 required
               />
             </label>
@@ -2552,15 +2754,24 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                 Sector de destino
                 <select
                   value={form.destino}
-                  onChange={(event) => setForm((prev) => ({ ...prev, destino: event.target.value }))}
-                  className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, destino: event.target.value }))
+                  }
+                  className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                   required
                 >
-                  <option value="">Seleccionar</option>
+                  <option value="">Seleccionar destino</option>
                   {sectores
-                    .filter((sector) => String(sector.codigosector) !== String(usuarioInfo?.codigosector || ""))
+                    .filter(
+                      (sector) =>
+                        String(sector.codigosector) !==
+                        String(usuarioInfo?.codigosector || "")
+                    )
                     .map((sector) => (
-                      <option key={sector.codigosector} value={sector.codigosector}>
+                      <option
+                        key={sector.codigosector}
+                        value={sector.codigosector}
+                      >
                         {sector.codigosector} - {sector.sector}
                       </option>
                     ))}
@@ -2571,28 +2782,35 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
               Motivo común
               <input
                 value={form.motivo}
-                onChange={(event) => setForm((prev) => ({ ...prev, motivo: event.target.value }))}
-                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink"
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, motivo: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-moss/50 focus:outline-none focus:ring-2 focus:ring-moss/20"
                 placeholder="Opcional"
               />
             </label>
           </div>
-          <button
-            type="submit"
-            disabled={seleccion.length < 2 || estadoMultiple === "loading"}
-            className={`mt-5 w-full cursor-pointer rounded-2xl px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-haze disabled:cursor-not-allowed disabled:opacity-50 ${
-              esEntrada ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"
-            }`}
-          >
-            {estadoMultiple === "loading"
-              ? "Procesando..."
-              : `Registrar ${esEntrada ? "entrada" : "salida"} de ${seleccion.length} expedientes`}
-          </button>
-          {!esEntrada && (
-            <p className="mt-2 text-center text-xs text-ink/50">
-              Al finalizar se generará un único remito con todos los expedientes seleccionados.
-            </p>
-          )}
+
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <button
+              type="submit"
+              disabled={seleccion.length < 2 || estadoMultiple === "loading"}
+              className={`inline-flex w-full cursor-pointer items-center justify-center rounded-2xl px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.2em] text-white shadow-haze transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                esEntrada
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {estadoMultiple === "loading"
+                ? "Procesando..."
+                : `Registrar ${esEntrada ? "entrada" : "salida"} de ${seleccion.length} expedientes`}
+            </button>
+            {!esEntrada && (
+              <p className="text-center text-xs text-ink/50">
+                Al finalizar se generará un único remito con todos los expedientes seleccionados.
+              </p>
+            )}
+          </div>
         </form>
       </div>
     );
