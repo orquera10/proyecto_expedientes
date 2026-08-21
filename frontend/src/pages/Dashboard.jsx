@@ -2522,9 +2522,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             </div>
           )}
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10">
-            <div className="max-h-[420px] overflow-auto">
-              <table className="w-full text-left text-sm">
+          <div className="mt-5 w-full max-w-full overflow-hidden rounded-2xl border border-ink/10">
+            <div className="max-h-[420px] w-full overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="sticky top-0 bg-white text-ink/60 shadow-sm">
                   <tr>
                     <th className="w-12 px-4 py-3 text-center">
@@ -2609,7 +2609,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                         <td className="whitespace-nowrap px-4 py-3 text-ink/70">
                           {item.codinum || "N/D"}
                         </td>
-                        <td className="min-w-64 px-4 py-3 text-ink/70">
+                        <td className="max-w-xs break-words px-4 py-3 text-ink/70">
                           {item.asunto || "Sin asunto"}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink/70">
@@ -3064,7 +3064,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
           </div>
         </aside>
 
-        <section className="space-y-8 h-full">
+        <section className="min-w-0 max-w-full space-y-8 h-full">
           {![
             "Consulta de Expedientes",
             "Listado de Expedientes",
@@ -5228,9 +5228,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                   </div>
                 )}
 
-                <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10">
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full text-left text-sm">
+                <div className="mt-5 w-full max-w-full overflow-hidden rounded-2xl border border-ink/10">
+                  <div className="max-h-[420px] w-full overflow-x-auto overflow-y-auto">
+                    <table className="w-full min-w-[720px] text-left text-sm">
                       <thead className="sticky top-0 bg-white text-ink/60">
                         <tr>
                           <th className="px-4 py-3 font-semibold">Accion</th>
@@ -5245,7 +5245,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                       <tbody className="divide-y divide-ink/10">
                         {entradaEstado === "loading" && (
                           <tr>
-                            <td className="px-4 py-4 text-ink/60" colSpan={6}>
+                            <td className="px-4 py-4 text-ink/60" colSpan={7}>
                               Cargando...
                             </td>
                           </tr>
@@ -5255,7 +5255,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                             <tr>
                               <td
                                 className="px-4 py-4 text-ink/60"
-                                colSpan={6}
+                                colSpan={7}
                               >
                                 No hay expedientes para mostrar.
                               </td>
@@ -5325,23 +5325,23 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-4 py-3 font-semibold text-ink">
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
                               {item.codigo || "N/D"}-{item.numero || "N/D"}/
                               {item.anio || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.codinum || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="max-w-xs break-words px-4 py-3">
                               {item.asunto || "Sin asunto"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {etiquetaTipo(item.tipo)}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.destino || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.fechamov
                                 ? new Date(item.fechamov).toLocaleDateString()
                                 : "N/D"}
@@ -5540,9 +5540,9 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                   </div>
                 )}
 
-                <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10">
-                  <div className="max-h-[420px] overflow-auto">
-                    <table className="w-full text-left text-sm">
+                <div className="mt-5 w-full max-w-full overflow-hidden rounded-2xl border border-ink/10">
+                  <div className="max-h-[420px] w-full overflow-x-auto overflow-y-auto">
+                    <table className="w-full min-w-[720px] text-left text-sm">
                       <thead className="sticky top-0 bg-white text-ink/60">
                         <tr>
                           <th className="px-4 py-3 font-semibold">Accion</th>
@@ -5557,7 +5557,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                       <tbody className="divide-y divide-ink/10">
                         {salidaEstado === "loading" && (
                           <tr>
-                            <td className="px-4 py-4 text-ink/60" colSpan={6}>
+                            <td className="px-4 py-4 text-ink/60" colSpan={7}>
                               Cargando...
                             </td>
                           </tr>
@@ -5567,7 +5567,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                             <tr>
                               <td
                                 className="px-4 py-4 text-ink/60"
-                                colSpan={6}
+                                colSpan={7}
                               >
                                 No hay expedientes para mostrar.
                               </td>
@@ -5637,23 +5637,23 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-4 py-3 font-semibold text-ink">
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
                               {item.codigo || "N/D"}-{item.numero || "N/D"}/
                               {item.anio || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.codinum || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="max-w-xs break-words px-4 py-3">
                               {item.asunto || "Sin asunto"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {etiquetaTipo(item.tipo)}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.origen || "N/D"}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="whitespace-nowrap px-4 py-3">
                               {item.fechamov
                                 ? new Date(item.fechamov).toLocaleDateString()
                                 : "N/D"}
