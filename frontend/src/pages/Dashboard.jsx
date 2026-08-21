@@ -194,6 +194,7 @@ function Dashboard() {
     motivo: "",
     destino: "",
   });
+  const [confirmacionMultipleModal, setConfirmacionMultipleModal] = useState(null);
   const [remitoPreview, setRemitoPreview] = useState(null);
   const [remitoPreviewReady, setRemitoPreviewReady] = useState(false);
   const remitoIframeRef = useRef(null);
@@ -819,7 +820,29 @@ function Dashboard() {
     );
   }
 
-  async function registrarMovimientoMultiple(tipo) {
+  function solicitarConfirmacionMultiple(tipo) {
+    const esEntrada = tipo === "entrada";
+    const seleccion = esEntrada
+      ? entradaMultipleSeleccion
+      : salidaMultipleSeleccion;
+    const form = esEntrada ? entradaMultipleForm : salidaMultipleForm;
+    const setError = esEntrada
+      ? setEntradaMultipleError
+      : setSalidaMultipleError;
+
+    if (seleccion.length < 2) {
+      setError("Selecciona al menos dos expedientes.");
+      return;
+    }
+    if (!esEntrada && !form.destino) {
+      setError("Selecciona el sector de destino.");
+      return;
+    }
+
+    setConfirmacionMultipleModal(tipo);
+  }
+
+  async function ejecutarMovimientoMultiple(tipo) {
     const esEntrada = tipo === "entrada";
     const seleccion = esEntrada
       ? entradaMultipleSeleccion
@@ -837,18 +860,8 @@ function Dashboard() {
     const setMensaje = esEntrada
       ? setEntradaMultipleMensaje
       : setSalidaMultipleMensaje;
-    if (seleccion.length < 2) {
-      setError("Selecciona al menos dos expedientes.");
-      return;
-    }
-    if (
-      !window.confirm(
-        `Se registrara la ${esEntrada ? "entrada" : "salida"} de ${seleccion.length} expedientes. ¿Continuar?`
-      )
-    ) {
-      return;
-    }
 
+    setConfirmacionMultipleModal(null);
     setEstado("loading");
     setError("");
     setMensaje("");
@@ -2700,7 +2713,7 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            registrarMovimientoMultiple(tipo);
+            solicitarConfirmacionMultiple(tipo);
           }}
           className="rounded-[28px] border border-ink/10 bg-white/80 p-6 shadow-sm"
         >
@@ -6658,6 +6671,188 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
             </div>
           </div>
         )}
+        {confirmacionMultipleModal && (() => {
+          const esEntrada = confirmacionMultipleModal === "entrada";
+          const seleccion = esEntrada
+            ? entradaMultipleSeleccion
+            : salidaMultipleSeleccion;
+          const resultados = esEntrada
+            ? entradaMultipleResultados
+            : salidaMultipleResultados;
+          const form = esEntrada ? entradaMultipleForm : salidaMultipleForm;
+          const itemsSeleccionados = resultados.filter((item) =>
+            seleccion.includes(claveSeleccionMultiple(item))
+          );
+          const sectorDestinoObj = !esEntrada
+            ? sectores.find((s) => String(s.codigosector) === String(form.destino))
+            : null;
+          const sectorDestinoNombre = sectorDestinoObj
+            ? `${sectorDestinoObj.codigosector} - ${sectorDestinoObj.sector}`
+            : form.destino || "No especificado";
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+              <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-ink/10 bg-white shadow-haze">
+                <div className="flex items-center justify-between border-b border-ink/10 px-6 py-5">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`grid h-10 w-10 place-items-center rounded-2xl ${
+                        esEntrada
+                          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border border-red-200 bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {esEntrada ? (
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 4v10" />
+                          <path d="M8 10l4 4 4-4" />
+                          <path d="M4 20h16" />
+                        </svg>
+                      ) : (
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20V10" />
+                          <path d="M8 14l4-4 4 4" />
+                          <path d="M4 4h16" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg font-semibold text-ink">
+                        Confirmar {esEntrada ? "Entrada" : "Salida"} Múltiple
+                      </h3>
+                      <p className="text-xs text-ink/60">
+                        {seleccion.length} expedientes seleccionados
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmacionMultipleModal(null)}
+                    className="cursor-pointer rounded-full p-2 text-ink/40 hover:bg-ink/5 hover:text-ink transition"
+                    title="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-ink/80">
+                    {esEntrada
+                      ? `¿Estás seguro de registrar la entrada grupal de ${seleccion.length} expedientes a tu sector?`
+                      : `¿Estás seguro de registrar la salida de ${seleccion.length} expedientes y emitir su remito?`}
+                  </p>
+
+                  <div className="rounded-2xl border border-ink/10 bg-stone/50 p-4 space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-ink/70">
+                      <span className="font-medium">
+                        Fecha de {esEntrada ? "entrada" : "salida"}:
+                      </span>
+                      <span className="font-semibold text-ink">
+                        {form[esEntrada ? "fechaentrada" : "fechasalida"]
+                          ? form[esEntrada ? "fechaentrada" : "fechasalida"]
+                              .split("-")
+                              .reverse()
+                              .join("/")
+                          : "Hoy"}
+                      </span>
+                    </div>
+
+                    {!esEntrada && (
+                      <div className="flex justify-between items-center text-ink/70">
+                        <span className="font-medium">Sector de destino:</span>
+                        <span className="font-semibold text-ink text-right max-w-[260px] truncate">
+                          {sectorDestinoNombre}
+                        </span>
+                      </div>
+                    )}
+
+                    {form.motivo && (
+                      <div className="flex justify-between items-start text-ink/70 gap-2">
+                        <span className="font-medium whitespace-nowrap">
+                          Motivo común:
+                        </span>
+                        <span className="font-semibold text-ink text-right break-words max-w-[260px]">
+                          {form.motivo}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/50 block mb-2">
+                      Expedientes a procesar ({itemsSeleccionados.length}):
+                    </span>
+                    <div className="max-h-32 overflow-y-auto rounded-xl border border-ink/10 bg-white p-2.5 space-y-1.5 divide-y divide-ink/5">
+                      {itemsSeleccionados.map((item) => (
+                        <div
+                          key={claveSeleccionMultiple(item)}
+                          className="pt-1.5 first:pt-0 flex items-center justify-between text-xs"
+                        >
+                          <span className="font-semibold text-ink whitespace-nowrap">
+                            {item.codigo}-{item.numero}/{item.anio}
+                          </span>
+                          <span
+                            className="text-ink/60 truncate max-w-[240px] text-right"
+                            title={item.asunto || "Sin asunto"}
+                          >
+                            {item.asunto || "Sin asunto"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {!esEntrada && (
+                    <div className="rounded-xl border border-red-200/80 bg-red-50/60 p-3 text-xs text-red-800">
+                      ℹ️ Se creará un único remito oficial que incluirá todos los expedientes seleccionados.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-ink/10 px-6 py-4 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmacionMultipleModal(null)}
+                    className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-ink/20 bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-ink/70 transition hover:border-moss/40 hover:text-ink"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      ejecutarMovimientoMultiple(confirmacionMultipleModal)
+                    }
+                    className={`inline-flex cursor-pointer items-center justify-center rounded-2xl px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-haze transition ${
+                      esEntrada
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-red-600 hover:bg-red-700"
+                    }`}
+                  >
+                    {esEntrada ? "Confirmar entrada" : "Confirmar salida"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {remitoPreview && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 md:p-6">
             <div className="flex h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-haze">
