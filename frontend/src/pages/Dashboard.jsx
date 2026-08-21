@@ -6128,45 +6128,46 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                               ? "Salida"
                               : mov.estado || "N/D"}
                           {mov.estado === "S" && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  setError("");
-                                  await abrirVistaPreviaRemito(
-                                    mov.id,
-                                    expediente || mov
-                                  );
-                                } catch (err) {
-                                  setError(err.message);
-                                }
-                              }}
-                              className="cursor-pointer rounded-full border border-red-200 bg-white px-3 py-1 font-semibold text-red-700 transition hover:bg-red-100"
-                              title="Descargar remito PDF"
-                              aria-label="Descargar remito PDF"
-                            >
-                              Ver remito
-                            </button>
-                          )}
-                          {mov.estado === "S" && mov.remito_lote_id && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  setError("");
-                                  await abrirVistaPreviaRemitoLote(
-                                    mov.remito_lote_id
-                                  );
-                                } catch (err) {
-                                  setError(err.message);
-                                }
-                              }}
-                              className="cursor-pointer rounded-full border border-moss/30 bg-white px-3 py-1 font-semibold text-moss transition hover:bg-moss/10"
-                              title="Ver remito multiple"
-                              aria-label="Ver remito multiple"
-                            >
-                              Ver remito múltiple
-                            </button>
+                            mov.remito_lote_id ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    setError("");
+                                    await abrirVistaPreviaRemitoLote(
+                                      mov.remito_lote_id
+                                    );
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }}
+                                className="cursor-pointer rounded-full border border-moss/30 bg-white px-3 py-1 font-semibold text-moss transition hover:bg-moss/10"
+                                title="Ver remito múltiple"
+                                aria-label="Ver remito múltiple"
+                              >
+                                Ver remito múltiple
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    setError("");
+                                    await abrirVistaPreviaRemito(
+                                      mov.id,
+                                      expediente || mov
+                                    );
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }}
+                                className="cursor-pointer rounded-full border border-red-200 bg-white px-3 py-1 font-semibold text-red-700 transition hover:bg-red-100"
+                                title="Descargar remito PDF"
+                                aria-label="Descargar remito PDF"
+                              >
+                                Ver remito
+                              </button>
+                            )
                           )}
                         </span>
                       </div>
@@ -7031,13 +7032,23 @@ async function fetchExpediente(codigoValue, numeroValue, anioValue) {
                             {movimiento.origen || "N/D"} → {movimiento.destino || "N/D"}
                           </div>
                           {movimiento.estado === "S" && (
-                            <button
-                              type="button"
-                              onClick={() => abrirVistaPreviaRemito(movimiento.id, asistenteDatos.expediente)}
-                              className="mt-2 cursor-pointer font-semibold text-moss hover:underline"
-                            >
-                              Ver remito
-                            </button>
+                            movimiento.remito_lote_id ? (
+                              <button
+                                type="button"
+                                onClick={() => abrirVistaPreviaRemitoLote(movimiento.remito_lote_id)}
+                                className="mt-2 cursor-pointer font-semibold text-moss hover:underline"
+                              >
+                                Ver remito múltiple
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => abrirVistaPreviaRemito(movimiento.id, asistenteDatos.expediente)}
+                                className="mt-2 cursor-pointer font-semibold text-moss hover:underline"
+                              >
+                                Ver remito
+                              </button>
+                            )
                           )}
                         </div>
                       ))}
